@@ -1,4 +1,21 @@
-node_modules/
-database.sqlite
-.env
+# Dependencies and build output
+**/node_modules/
+**/dist/
+**/build/
+
+# Environment secrets
+**/.env
+**/.env.*
+!**/.env.example
+
+# Local database
+backend/database.sqlite
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
 *.log
