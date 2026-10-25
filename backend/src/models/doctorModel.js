@@ -4,29 +4,28 @@ const {
   dbAll,
 } = require('../middlewares_helpers/sqlite3_helpers');
 
-// Mengambil semua data dokter.
 const findAllDoctors = async () => {
   const query = `
-    SELECT *
-    FROM doctors
-    ORDER BY id DESC
+    SELECT d.*, r.room_number
+    FROM doctors d
+    LEFT JOIN rooms r ON r.id = d.room_id
+    ORDER BY d.id DESC
   `;
 
   return dbAll(query);
 };
 
-// Mengambil satu dokter berdasarkan ID.
 const findDoctorById = async (id) => {
   const query = `
-    SELECT *
-    FROM doctors
-    WHERE id = ?
+    SELECT d.*, r.room_number
+    FROM doctors d
+    LEFT JOIN rooms r ON r.id = d.room_id
+    WHERE d.id = ?
   `;
 
   return dbGet(query, [id]);
 };
 
-// Menambahkan dokter baru.
 const createDoctor = async (body) => {
   const query = `
     INSERT INTO doctors (
@@ -36,9 +35,10 @@ const createDoctor = async (body) => {
       specialization,
       phone,
       email,
+      room_id,
       is_active
     )
-    VALUES (?, ?, ?, ?, ?, ?, 1)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 1)
   `;
 
   const values = [
@@ -48,6 +48,7 @@ const createDoctor = async (body) => {
     body.specialization,
     body.phone ?? null,
     body.email ?? null,
+    body.room_id,
   ];
 
   const result = await dbRun(query, values);
@@ -55,7 +56,6 @@ const createDoctor = async (body) => {
   return findDoctorById(result.lastID);
 };
 
-// Memperbarui data dokter.
 const updateDoctor = async (id, body) => {
   const existing = await findDoctorById(id);
 
@@ -71,6 +71,7 @@ const updateDoctor = async (id, body) => {
         specialization = ?,
         phone = ?,
         email = ?,
+        room_id = ?,
         updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
   `;
@@ -100,6 +101,10 @@ const updateDoctor = async (id, body) => {
       ? body.email
       : existing.email,
 
+    body.room_id !== undefined
+      ? body.room_id
+      : existing.room_id,
+
     id,
   ];
 
@@ -108,7 +113,6 @@ const updateDoctor = async (id, body) => {
   return findDoctorById(id);
 };
 
-// Mengubah status aktif dokter.
 const updateDoctorStatus = async (id, isActive) => {
   const query = `
     UPDATE doctors
