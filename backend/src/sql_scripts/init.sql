@@ -1,5 +1,11 @@
 PRAGMA foreign_keys = ON;
 
+CREATE TABLE IF NOT EXISTS rooms (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    room_number  TEXT NOT NULL UNIQUE,
+    created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS test_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -23,11 +29,18 @@ CREATE TABLE IF NOT EXISTS doctors (
     full_name      TEXT NOT NULL,
     title_suffix   TEXT,
     specialization TEXT NOT NULL,
+    room_id        INTEGER NOT NULL UNIQUE,
     phone          TEXT,
     email          TEXT,
     is_active      INTEGER NOT NULL DEFAULT 1,
     created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_doctors_room
+        FOREIGN KEY (room_id)
+        REFERENCES rooms(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
 
     CHECK (is_active IN (0, 1))
 );
@@ -36,7 +49,7 @@ CREATE TABLE IF NOT EXISTS doctor_schedules (
     id                     INTEGER PRIMARY KEY AUTOINCREMENT,
     doctor_id              INTEGER NOT NULL,
     day_of_week            INTEGER NOT NULL
-        CHECK (day_of_week BETWEEN 0 AND 6),
+        CHECK (day_of_week BETWEEN 1 AND 7),
     start_time             TEXT NOT NULL,
     end_time               TEXT NOT NULL,
     slot_duration_minutes  INTEGER NOT NULL DEFAULT 30

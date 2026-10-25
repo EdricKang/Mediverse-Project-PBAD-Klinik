@@ -11,6 +11,9 @@ const testRoutes = require('./src/routes/test');
 const productRoutes = require('./src/routes/productRoutes');
 const patientRoutes = require('./src/routes/patientRoutes');
 const doctorRoutes = require('./src/routes/doctorRoutes');
+const appointmentRoutes = require('./src/routes/appointmentRoutes');
+const doctorScheduleRoutes = require('./src/routes/doctorScheduleRoutes');
+const roomRoutes = require('./src/routes/roomRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -33,9 +36,11 @@ app.get('/', (req, res) => {
 
 app.use('/api/test', testRoutes);
 app.use('/api/products', productRoutes);
-
 app.use('/api/patients', patientRoutes);
 app.use('/api/doctors', doctorRoutes);
+app.use('/api/appointments', appointmentRoutes);
+app.use('/api/doctor-schedules', doctorScheduleRoutes);
+app.use('/api/rooms', roomRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

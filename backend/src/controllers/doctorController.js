@@ -1,4 +1,5 @@
 const doctorModel = require('../models/doctorModel');
+const roomModel = require('../models/roomModel');
 
 const success = (res, status, message, data = null) => {
   return res.status(status).json({
@@ -85,6 +86,11 @@ const createDoctor = async (req, res) => {
       ? body.specialization.trim()
       : '';
 
+  const roomId = parseId(body.room_id);
+    if (!roomId) {
+    return fail(res, 400, 'room_id wajib diisi dengan ID ruangan yang valid');
+    }
+
   if (!fullName || !specialization) {
     return fail(
       res,
@@ -123,6 +129,12 @@ const createDoctor = async (req, res) => {
   };
 
   try {
+
+    const room = await roomModel.findRoomById(roomId);
+      if (!room) {
+      return fail(res, 404, 'Ruangan tidak ditemukan');
+      }
+
     const doctor = await doctorModel.createDoctor({
       title_prefix: normalizeOptionalText(body.title_prefix),
       full_name: fullName,
@@ -130,6 +142,7 @@ const createDoctor = async (req, res) => {
       specialization,
       phone: normalizeOptionalText(body.phone),
       email: normalizeOptionalText(body.email),
+      room_id: roomId,
     });
 
     return success(
@@ -139,6 +152,10 @@ const createDoctor = async (req, res) => {
       doctor
     );
   } catch (error) {
+    if (error.message?.includes('UNIQUE constraint failed')) {
+      return fail(res, 409, 'Ruangan sudah digunakan dokter lain');
+    }
+
     console.error('[createDoctor]', error);
 
     return fail(res, 500, 'Gagal menambahkan dokter');
@@ -196,6 +213,22 @@ const updateDoctor = async (req, res) => {
   try {
     const normalized = { ...body };
 
+    if (body.room_id !== undefined) {
+      const roomId = parseId(body.room_id);
+
+      if (!roomId) {
+        return fail(res, 400, 'room_id tidak valid');
+      }
+
+      const room = await roomModel.findRoomById(roomId);
+
+      if (!room) {
+        return fail(res, 404, 'Ruangan tidak ditemukan');
+      }
+
+  normalized.room_id = roomId;
+}
+
     for (const field of textFields) {
       if (typeof normalized[field] === 'string') {
         normalized[field] =
@@ -219,6 +252,10 @@ const updateDoctor = async (req, res) => {
       doctor
     );
   } catch (error) {
+    if (error.message?.includes('UNIQUE constraint failed')) {
+      return fail(res, 409, 'Ruangan sudah digunakan dokter lain');
+    }
+
     console.error('[updateDoctor]', error);
 
     return fail(res, 500, 'Gagal memperbarui dokter');
