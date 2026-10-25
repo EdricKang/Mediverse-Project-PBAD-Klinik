@@ -1,7 +1,7 @@
 # Dependencies and build output
-**/node_modules/
-**/dist/
-**/build/
+node_modules/
+dist/
+build/
 
 # Environment secrets
 **/.env
@@ -12,8 +12,6 @@
 database.sqlite
 database.sqlite-shm
 database.sqlite-wal
-.env
-node_modules/
 
 # IDE and OS
 .vscode/
