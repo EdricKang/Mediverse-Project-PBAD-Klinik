@@ -19,42 +19,99 @@ CREATE TABLE IF NOT EXISTS patients (
 
 CREATE TABLE IF NOT EXISTS doctors (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    title_prefix   TEXT,
     full_name      TEXT NOT NULL,
+    title_suffix   TEXT,
     specialization TEXT NOT NULL,
     phone          TEXT,
     email          TEXT,
     is_active      INTEGER NOT NULL DEFAULT 1,
     created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
     CHECK (is_active IN (0, 1))
+);
+
+CREATE TABLE IF NOT EXISTS doctor_schedules (
+    id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+    doctor_id              INTEGER NOT NULL,
+    day_of_week            INTEGER NOT NULL
+        CHECK (day_of_week BETWEEN 0 AND 6),
+    start_time             TEXT NOT NULL,
+    end_time               TEXT NOT NULL,
+    slot_duration_minutes  INTEGER NOT NULL DEFAULT 30
+        CHECK (slot_duration_minutes > 0),
+    is_active              INTEGER NOT NULL DEFAULT 1,
+    created_at             DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at             DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_doctor_schedules_doctor
+        FOREIGN KEY (doctor_id)
+        REFERENCES doctors(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    CHECK (start_time < end_time),
+    CHECK (is_active IN (0, 1)),
+
+    UNIQUE (doctor_id, day_of_week, start_time)
 );
 
 CREATE TABLE IF NOT EXISTS appointments (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     patient_id       INTEGER NOT NULL,
     doctor_id        INTEGER NOT NULL,
-    appointment_date TEXT NOT NULL, -- Expected format: YYYY-MM-DD
-    appointment_time TEXT NOT NULL, -- Expected format: HH:MM (24-hour)
+    booking_code     TEXT,
+    appointment_date TEXT NOT NULL,
+    appointment_time TEXT NOT NULL,
     complaint        TEXT,
     status           TEXT NOT NULL DEFAULT 'pending',
     created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT fk_appointments_patient
-        FOREIGN KEY (patient_id) REFERENCES patients(id)
-        ON UPDATE CASCADE ON DELETE RESTRICT,
+        FOREIGN KEY (patient_id)
+        REFERENCES patients(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
     CONSTRAINT fk_appointments_doctor
-        FOREIGN KEY (doctor_id) REFERENCES doctors(id)
-        ON UPDATE CASCADE ON DELETE RESTRICT,
-    CHECK (status IN ('pending', 'confirmed', 'completed', 'cancelled'))
+        FOREIGN KEY (doctor_id)
+        REFERENCES doctors(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    CHECK (
+        status IN (
+            'pending',
+            'confirmed',
+            'completed',
+            'cancelled'
+        )
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_doctor_schedules_lookup
+ON doctor_schedules (
+    doctor_id,
+    day_of_week,
+    is_active
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_appointments_doctor_slot_active
-ON appointments (doctor_id, appointment_date, appointment_time)
+ON appointments (
+    doctor_id,
+    appointment_date,
+    appointment_time
+)
 WHERE status IN ('pending', 'confirmed');
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_appointments_patient_slot_active
-ON appointments (patient_id, appointment_date, appointment_time)
+ON appointments (
+    patient_id,
+    appointment_date,
+    appointment_time
+)
 WHERE status IN ('pending', 'confirmed');
 
 CREATE INDEX IF NOT EXISTS idx_appointments_date

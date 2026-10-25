@@ -93,7 +93,14 @@ const createDoctor = async (req, res) => {
     );
   }
 
-  for (const field of ['phone', 'email']) {
+  const textFields = [
+    'title_prefix',
+    'title_suffix',
+    'phone',
+    'email',
+  ];
+
+  for (const field of textFields) {
     if (
       body[field] !== undefined &&
       body[field] !== null &&
@@ -107,12 +114,22 @@ const createDoctor = async (req, res) => {
     }
   }
 
+  const normalizeOptionalText = (value) => {
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    return value.trim() || null;
+  };
+
   try {
     const doctor = await doctorModel.createDoctor({
+      title_prefix: normalizeOptionalText(body.title_prefix),
       full_name: fullName,
+      title_suffix: normalizeOptionalText(body.title_suffix),
       specialization,
-      phone: body.phone?.trim() || null,
-      email: body.email?.trim() || null,
+      phone: normalizeOptionalText(body.phone),
+      email: normalizeOptionalText(body.email),
     });
 
     return success(
@@ -137,25 +154,36 @@ const updateDoctor = async (req, res) => {
 
   const body = req.body ?? {};
 
-  for (const field of [
+  const textFields = [
+    'title_prefix',
     'full_name',
+    'title_suffix',
     'specialization',
     'phone',
     'email',
-  ]) {
+  ];
+
+  for (const field of textFields) {
     if (
       body[field] !== undefined &&
       body[field] !== null &&
       typeof body[field] !== 'string'
     ) {
-      return fail(res, 400, `${field} harus berupa teks`);
+      return fail(
+        res,
+        400,
+        `${field} harus berupa teks`
+      );
     }
   }
 
   for (const field of ['full_name', 'specialization']) {
     if (
       body[field] !== undefined &&
-      !body[field]?.trim()
+      (
+        typeof body[field] !== 'string' ||
+        !body[field].trim()
+      )
     ) {
       return fail(
         res,
@@ -168,12 +196,7 @@ const updateDoctor = async (req, res) => {
   try {
     const normalized = { ...body };
 
-    for (const field of [
-      'full_name',
-      'specialization',
-      'phone',
-      'email',
-    ]) {
+    for (const field of textFields) {
       if (typeof normalized[field] === 'string') {
         normalized[field] =
           normalized[field].trim() || null;

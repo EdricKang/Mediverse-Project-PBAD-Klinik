@@ -1,11 +1,10 @@
-
 const {
   dbRun,
   dbGet,
   dbAll,
 } = require('../middlewares_helpers/sqlite3_helpers');
 
-// Mengambil semua data dokter
+// Mengambil semua data dokter.
 const findAllDoctors = async () => {
   const query = `
     SELECT *
@@ -16,7 +15,7 @@ const findAllDoctors = async () => {
   return dbAll(query);
 };
 
-// Mengambil satu dokter berdasarkan ID
+// Mengambil satu dokter berdasarkan ID.
 const findDoctorById = async (id) => {
   const query = `
     SELECT *
@@ -27,21 +26,25 @@ const findDoctorById = async (id) => {
   return dbGet(query, [id]);
 };
 
-// Menambahkan dokter baru
+// Menambahkan dokter baru.
 const createDoctor = async (body) => {
   const query = `
     INSERT INTO doctors (
+      title_prefix,
       full_name,
+      title_suffix,
       specialization,
       phone,
       email,
       is_active
     )
-    VALUES (?, ?, ?, ?, 1)
+    VALUES (?, ?, ?, ?, ?, ?, 1)
   `;
 
   const values = [
+    body.title_prefix ?? null,
     body.full_name,
+    body.title_suffix ?? null,
     body.specialization,
     body.phone ?? null,
     body.email ?? null,
@@ -52,7 +55,7 @@ const createDoctor = async (body) => {
   return findDoctorById(result.lastID);
 };
 
-// Memperbarui data dokter
+// Memperbarui data dokter.
 const updateDoctor = async (id, body) => {
   const existing = await findDoctorById(id);
 
@@ -62,7 +65,9 @@ const updateDoctor = async (id, body) => {
 
   const query = `
     UPDATE doctors
-    SET full_name = ?,
+    SET title_prefix = ?,
+        full_name = ?,
+        title_suffix = ?,
         specialization = ?,
         phone = ?,
         email = ?,
@@ -71,9 +76,17 @@ const updateDoctor = async (id, body) => {
   `;
 
   const values = [
+    body.title_prefix !== undefined
+      ? body.title_prefix
+      : existing.title_prefix,
+
     body.full_name !== undefined
       ? body.full_name
       : existing.full_name,
+
+    body.title_suffix !== undefined
+      ? body.title_suffix
+      : existing.title_suffix,
 
     body.specialization !== undefined
       ? body.specialization
@@ -95,7 +108,7 @@ const updateDoctor = async (id, body) => {
   return findDoctorById(id);
 };
 
-// Mengubah status aktif dokter
+// Mengubah status aktif dokter.
 const updateDoctorStatus = async (id, isActive) => {
   const query = `
     UPDATE doctors
