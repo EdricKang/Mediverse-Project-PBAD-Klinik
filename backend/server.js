@@ -7,8 +7,6 @@ const {
   initializeDatabase,
 } = require('./src/config/database');
 
-const testRoutes = require('./src/routes/test');
-const productRoutes = require('./src/routes/productRoutes');
 const patientRoutes = require('./src/routes/patientRoutes');
 const doctorRoutes = require('./src/routes/doctorRoutes');
 const appointmentRoutes = require('./src/routes/appointmentRoutes');
@@ -25,17 +23,17 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/', (req, res) => {
   res.json({
     success: true,
-    message: 'Clinic Appointment API is running',
+    message: 'Mediverse Clinic Appointment API is running',
     endpoints: {
       patients: '/api/patients',
-      products: '/api/products',
-      test: '/api/test',
+      doctors: '/api/doctors',
+      rooms: '/api/rooms',
+      doctorSchedules: '/api/doctor-schedules',
+      appointments: '/api/appointments',
     },
   });
 });
 
-app.use('/api/test', testRoutes);
-app.use('/api/products', productRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/appointments', appointmentRoutes);
