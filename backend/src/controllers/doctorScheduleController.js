@@ -201,7 +201,7 @@ const createSchedule = async (req, res) => {
     return fail(
       res,
       400,
-      'Hari praktik harus berupa angka 0 sampai 6'
+      'Hari praktik harus berupa angka 1 sampai 7'
     );
   }
 
