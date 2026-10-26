@@ -64,7 +64,56 @@ const getRoomById = async (req, res) => {
   }
 };
 
+const createRoom = async (req, res) => {
+  const rawRoomNumber = req.body?.room_number;
+
+  const roomNumber =
+    typeof rawRoomNumber === 'string'
+      ? rawRoomNumber.trim()
+      : typeof rawRoomNumber === 'number' &&
+          Number.isSafeInteger(rawRoomNumber) &&
+          rawRoomNumber > 0
+        ? String(rawRoomNumber)
+        : '';
+
+  if (!roomNumber) {
+    return fail(
+      res,
+      400,
+      'room_number wajib diisi dengan teks atau angka positif'
+    );
+  }
+
+  if (roomNumber.length > 20) {
+    return fail(res, 400, 'Nomor ruangan maksimal 20 karakter');
+  }
+
+  try {
+    const room = await roomModel.createRoom(roomNumber);
+
+    return success(
+      res,
+      201,
+      'Ruangan berhasil ditambahkan',
+      room
+    );
+  } catch (error) {
+    if (
+      error.message?.includes(
+        'UNIQUE constraint failed: rooms.room_number'
+      )
+    ) {
+      return fail(res, 409, 'Nomor ruangan sudah digunakan');
+    }
+
+    console.error('[createRoom]', error);
+
+    return fail(res, 500, 'Gagal menambahkan ruangan');
+  }
+};
+
 module.exports = {
   getAllRooms,
   getRoomById,
+  createRoom,
 };

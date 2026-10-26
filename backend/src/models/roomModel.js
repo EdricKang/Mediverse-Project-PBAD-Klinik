@@ -1,4 +1,5 @@
 const {
+  dbRun,
   dbGet,
   dbAll,
 } = require('../middlewares_helpers/sqlite3_helpers');
@@ -28,7 +29,19 @@ const findRoomById = async (id) => {
   return dbGet(query, [id]);
 };
 
+const createRoom = async (roomNumber) => {
+  const query = `
+    INSERT INTO rooms (room_number)
+    VALUES (?)
+  `;
+
+  const result = await dbRun(query, [roomNumber]);
+
+  return findRoomById(result.lastID);
+};
+
 module.exports = {
   findAllRooms,
   findRoomById,
+  createRoom,
 };
