@@ -6,7 +6,6 @@ const {
   dbAll,
 } = require('../middlewares_helpers/sqlite3_helpers');
 
-// Mengambil daftar janji temu.
 const findAllAppointments = async (filters = {}) => {
   let query = `
     SELECT
@@ -25,7 +24,8 @@ const findAllAppointments = async (filters = {}) => {
       d.title_prefix,
       d.full_name AS doctor_name,
       d.title_suffix,
-      d.specialization AS doctor_specialization
+      d.specialization AS doctor_specialization,
+      d.room_number
     FROM appointments a
     JOIN patients p ON a.patient_id = p.id
     JOIN doctors d ON a.doctor_id = d.id
@@ -67,7 +67,6 @@ const findAllAppointments = async (filters = {}) => {
   return dbAll(query, values);
 };
 
-// Mengambil satu janji temu berdasarkan ID.
 const findAppointmentById = async (id) => {
   const query = `
     SELECT
@@ -86,18 +85,17 @@ const findAppointmentById = async (id) => {
       d.title_prefix,
       d.full_name AS doctor_name,
       d.title_suffix,
-      d.specialization AS doctor_specialization
+      d.specialization AS doctor_specialization,
+      d.room_number
     FROM appointments a
     JOIN patients p ON a.patient_id = p.id
     JOIN doctors d ON a.doctor_id = d.id
-    LEFT JOIN rooms r ON r.id = d.room_id
     WHERE a.id = ?
   `;
 
   return dbGet(query, [id]);
 };
 
-// Membuat janji temu dengan kode booking otomatis.
 const createAppointment = async (body) => {
   const query = `
     INSERT INTO appointments (
@@ -112,7 +110,6 @@ const createAppointment = async (body) => {
     VALUES (?, ?, ?, ?, ?, ?, 'pending')
   `;
 
-  // Ulangi jika kode booking kebetulan bertabrakan.
   for (let attempt = 0; attempt < 5; attempt++) {
     const bookingCode =
       `KLINIK-${randomBytes(5).toString('hex').toUpperCase()}`;
@@ -131,8 +128,6 @@ const createAppointment = async (body) => {
 
       return findAppointmentById(result.lastID);
     } catch (error) {
-      // Hanya buat ulang kode jika kode booking yang bentrok.
-      // Konflik slot janji temu harus tetap ditangani sebagai error.
       if (
         error.message?.includes('appointments.booking_code') &&
         attempt < 4
@@ -147,7 +142,6 @@ const createAppointment = async (body) => {
   throw new Error('Gagal membuat kode booking yang unik');
 };
 
-// Memperbarui status janji temu.
 const updateAppointment = async (id, body) => {
   const query = `
     UPDATE appointments

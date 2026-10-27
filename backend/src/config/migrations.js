@@ -6,28 +6,203 @@ const all = (db, sql, params = []) =>
     });
   });
 
-const run = (db, sql, params = []) =>
+const get = (db, sql, params = []) =>
   new Promise((resolve, reject) => {
-    db.run(sql, params, function (error) {
-      if (error) {
-        reject(error);
-      } else {
-        resolve({
-          lastID: this.lastID,
-          changes: this.changes,
-        });
-      }
+    db.get(sql, params, (error, row) => {
+      if (error) reject(error);
+      else resolve(row);
     });
   });
 
-const applyMigrations = async (db) => {
+const run = (db, sql, params = []) =>
+  new Promise((resolve, reject) => {
+    db.run(sql, params, function (error) {
+      if (error) reject(error);
+      else resolve({
+        lastID: this.lastID,
+        changes: this.changes,
+      });
+    });
+  });
 
-  const doctorColumns = await all(
+const migrateDoctorRoomNumber = async (db) => {
+  const columns = await all(db, "PRAGMA table_info('doctors')");
+  const names = columns.map((column) => column.name);
+
+  const hasRoomId = names.includes('room_id');
+  const hasRoomNumber = names.includes('room_number');
+
+  const roomsTable = await get(
+    db,
+    `SELECT name
+     FROM sqlite_master
+     WHERE type = 'table' AND name = 'rooms'`
+  );
+
+  if (hasRoomNumber && !hasRoomId) {
+    if (roomsTable) {
+      await run(db, 'PRAGMA foreign_keys = OFF');
+
+      try {
+        await run(db, 'BEGIN TRANSACTION');
+        await run(db, 'DROP TABLE IF EXISTS rooms');
+        await run(db, 'COMMIT');
+      } catch (error) {
+        await run(db, 'ROLLBACK').catch(() => {});
+        throw error;
+      } finally {
+        await run(db, 'PRAGMA foreign_keys = ON');
+      }
+    }
+
+    return;
+  }
+
+  let doctors;
+
+  if (hasRoomId && roomsTable) {
+    doctors = await all(
+      db,
+      `SELECT d.*,
+              r.room_number AS old_room_number
+       FROM doctors d
+       LEFT JOIN rooms r ON r.id = d.room_id
+       ORDER BY d.id`
+    );
+  } else {
+    doctors = await all(
+      db,
+      'SELECT * FROM doctors ORDER BY id'
+    );
+  }
+
+  const usedNumbers = new Set();
+
+  const migratedDoctors = doctors.map((doctor) => {
+    let roomNumber =
+      typeof doctor.room_number === 'string'
+        ? doctor.room_number.trim()
+        : '';
+
+    if (
+      !roomNumber &&
+      typeof doctor.old_room_number === 'string'
+    ) {
+      roomNumber = doctor.old_room_number.trim();
+    }
+
+    if (!roomNumber) {
+      roomNumber = String(300 + Number(doctor.id));
+
+      while (usedNumbers.has(roomNumber)) {
+        roomNumber = String(Number(roomNumber) + 1);
+      }
+    }
+
+    if (usedNumbers.has(roomNumber)) {
+      throw new Error(
+        `Nomor ruangan ${roomNumber} digunakan lebih dari sekali. ` +
+        'Periksa data dokter sebelum melanjutkan migrasi.'
+      );
+    }
+
+    usedNumbers.add(roomNumber);
+
+    return {
+      ...doctor,
+      migrated_room_number: roomNumber,
+    };
+  });
+
+  await run(db, 'PRAGMA foreign_keys = OFF');
+
+  try {
+    await run(db, 'BEGIN TRANSACTION');
+    await run(db, 'DROP TABLE IF EXISTS doctors_new');
+
+    await run(
+      db,
+      `CREATE TABLE doctors_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title_prefix TEXT,
+        full_name TEXT NOT NULL,
+        title_suffix TEXT,
+        specialization TEXT NOT NULL,
+        room_number TEXT NOT NULL UNIQUE,
+        phone TEXT,
+        email TEXT,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CHECK (is_active IN (0, 1))
+      )`
+    );
+
+    for (const doctor of migratedDoctors) {
+      await run(
+        db,
+        `INSERT INTO doctors_new (
+          id,
+          title_prefix,
+          full_name,
+          title_suffix,
+          specialization,
+          room_number,
+          phone,
+          email,
+          is_active,
+          created_at,
+          updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          doctor.id,
+          doctor.title_prefix ?? null,
+          doctor.full_name,
+          doctor.title_suffix ?? null,
+          doctor.specialization,
+          doctor.migrated_room_number,
+          doctor.phone ?? null,
+          doctor.email ?? null,
+          doctor.is_active ?? 1,
+          doctor.created_at || null,
+          doctor.updated_at || null,
+        ]
+      );
+    }
+
+    await run(db, 'DROP TABLE doctors');
+    await run(
+      db,
+      'ALTER TABLE doctors_new RENAME TO doctors'
+    );
+
+    await run(db, 'DROP TABLE IF EXISTS rooms');
+    await run(db, 'COMMIT');
+  } catch (error) {
+    await run(db, 'ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    await run(db, 'PRAGMA foreign_keys = ON');
+  }
+
+  const problems = await all(db, 'PRAGMA foreign_key_check');
+
+  if (problems.length > 0) {
+    throw new Error(
+      'Migrasi selesai, tetapi ditemukan masalah foreign key: ' +
+      JSON.stringify(problems)
+    );
+  }
+};
+
+const applyMigrations = async (db) => {
+  let doctorColumns = await all(
     db,
     "PRAGMA table_info('doctors')"
   );
 
-  const doctorColumnNames = doctorColumns.map(
+  let doctorColumnNames = doctorColumns.map(
     (column) => column.name
   );
 
@@ -44,6 +219,8 @@ const applyMigrations = async (db) => {
       'ALTER TABLE doctors ADD COLUMN title_suffix TEXT'
     );
   }
+
+  await migrateDoctorRoomNumber(db);
 
   const appointmentColumns = await all(
     db,
@@ -67,19 +244,19 @@ const applyMigrations = async (db) => {
      FROM appointments
      WHERE booking_code IS NULL
         OR TRIM(booking_code) = ''
-     ORDER BY id ASC`
+     ORDER BY id`
   );
 
   for (const appointment of appointmentsWithoutCode) {
-    const bookingCode =
-      `KLINIK-${String(appointment.id).padStart(6, '0')}`;
-
     await run(
       db,
       `UPDATE appointments
        SET booking_code = ?
        WHERE id = ?`,
-      [bookingCode, appointment.id]
+      [
+        `KLINIK-${String(appointment.id).padStart(6, '0')}`,
+        appointment.id,
+      ]
     );
   }
 
@@ -114,15 +291,13 @@ const applyMigrations = async (db) => {
         ON DELETE RESTRICT,
 
       CHECK (start_time < end_time),
-
       UNIQUE (doctor_id, day_of_week, start_time)
     )`
   );
 
   await run(
     db,
-    `CREATE INDEX IF NOT EXISTS
-       idx_doctor_schedules_lookup
+    `CREATE INDEX IF NOT EXISTS idx_doctor_schedules_lookup
      ON doctor_schedules (
        doctor_id,
        day_of_week,
@@ -130,98 +305,7 @@ const applyMigrations = async (db) => {
      )`
   );
 
-  // Membuat tabel ruangan jika belum tersedia.
-  await run(
-    db,
-    `CREATE TABLE IF NOT EXISTS rooms (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      room_number TEXT NOT NULL UNIQUE,
-      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )`
-  );
-
-  // Menyiapkan nomor ruangan awal.
-  await run(
-    db,
-    `INSERT OR IGNORE INTO rooms (room_number)
-     VALUES ('203'), ('244'), ('305')`
-  );
-
-  // Menambahkan room_id ke database lama jika belum tersedia.
-  const doctorColumnsForRoom = await all(
-    db,
-    "PRAGMA table_info('doctors')"
-  );
-
-  const doctorColumnNamesForRoom =
-    doctorColumnsForRoom.map((column) => column.name);
-
-  if (!doctorColumnNamesForRoom.includes('room_id')) {
-    await run(
-      db,
-      'ALTER TABLE doctors ADD COLUMN room_id INTEGER REFERENCES rooms(id)'
-    );
-  }
-
-  // Menghubungkan dokter lama dengan ruangan.
-  // ID 1 menggunakan 203, ID 2 menggunakan 244.
-  // Dokter lain yang belum memiliki ruangan mendapatkan nomor
-  // berdasarkan ID agar datanya tidak hilang.
-  const doctorsWithoutRoom = await all(
-    db,
-    `SELECT id
-     FROM doctors
-     WHERE room_id IS NULL
-     ORDER BY id ASC`
-  );
-
-  for (const doctor of doctorsWithoutRoom) {
-    const doctorId = Number(doctor.id);
-
-    const roomNumber =
-      doctorId === 1
-        ? '203'
-        : doctorId === 2
-          ? '244'
-          : String(300 + doctorId);
-
-    await run(
-      db,
-      `INSERT OR IGNORE INTO rooms (room_number)
-       VALUES (?)`,
-      [roomNumber]
-    );
-
-    const roomRows = await all(
-      db,
-      'SELECT id FROM rooms WHERE room_number = ?',
-      [roomNumber]
-    );
-
-    if (roomRows.length === 0) {
-      throw new Error(
-        `Ruangan ${roomNumber} tidak ditemukan`
-      );
-    }
-
-    await run(
-      db,
-      `UPDATE doctors
-       SET room_id = ?
-       WHERE id = ?
-         AND room_id IS NULL`,
-      [roomRows[0].id, doctorId]
-    );
-  }
-
-  await run(
-    db,
-    `CREATE UNIQUE INDEX IF NOT EXISTS uq_doctors_room_id
-     ON doctors (room_id)
-     WHERE room_id IS NOT NULL`
-  );
-
-  const scheduleSchemaForDayChange = await all(
+  const scheduleSchema = await all(
     db,
     `SELECT sql
      FROM sqlite_master
@@ -229,12 +313,10 @@ const applyMigrations = async (db) => {
        AND name = 'doctor_schedules'`
   );
 
-  if (scheduleSchemaForDayChange.length > 0) {
-    const scheduleSql =
-      scheduleSchemaForDayChange[0].sql || '';
+  if (scheduleSchema.length > 0) {
+    const schemaSql = scheduleSchema[0].sql || '';
 
-    if (/BETWEEN\s+0\s+AND\s+6/i.test(scheduleSql)) {
-
+    if (/BETWEEN\s+0\s+AND\s+6/i.test(schemaSql)) {
       await run(db, 'BEGIN TRANSACTION');
 
       try {
@@ -285,10 +367,7 @@ const applyMigrations = async (db) => {
           SELECT
             id,
             doctor_id,
-            CASE
-              WHEN day_of_week = 0 THEN 7
-              ELSE day_of_week
-            END,
+            CASE WHEN day_of_week = 0 THEN 7 ELSE day_of_week END,
             start_time,
             end_time,
             slot_duration_minutes,
@@ -318,13 +397,31 @@ const applyMigrations = async (db) => {
 
         await run(db, 'COMMIT');
       } catch (error) {
-        await run(db, 'ROLLBACK');
+        await run(db, 'ROLLBACK').catch(() => {});
         throw error;
       }
     }
   }
 
-  console.log('✅ Migrasi database berhasil diterapkan.');
+  await run(
+    db,
+    `CREATE INDEX IF NOT EXISTS idx_appointments_date
+     ON appointments (appointment_date)`
+  );
+
+  await run(
+    db,
+    `CREATE INDEX IF NOT EXISTS idx_appointments_patient
+     ON appointments (patient_id)`
+  );
+
+  await run(
+    db,
+    `CREATE INDEX IF NOT EXISTS idx_appointments_doctor_date
+     ON appointments (doctor_id, appointment_date)`
+  );
+
+  console.log('Migrasi database berhasil diterapkan.');
 };
 
 module.exports = { applyMigrations };

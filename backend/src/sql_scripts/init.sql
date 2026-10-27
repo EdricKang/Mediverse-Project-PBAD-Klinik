@@ -1,11 +1,5 @@
 PRAGMA foreign_keys = ON;
 
-CREATE TABLE IF NOT EXISTS rooms (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    room_number  TEXT NOT NULL UNIQUE,
-    created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
 CREATE TABLE IF NOT EXISTS patients (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     full_name      TEXT NOT NULL,
@@ -24,18 +18,12 @@ CREATE TABLE IF NOT EXISTS doctors (
     full_name      TEXT NOT NULL,
     title_suffix   TEXT,
     specialization TEXT NOT NULL,
-    room_id        INTEGER NOT NULL UNIQUE,
+    room_number    TEXT NOT NULL UNIQUE,
     phone          TEXT,
     email          TEXT,
     is_active      INTEGER NOT NULL DEFAULT 1,
     created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT fk_doctors_room
-        FOREIGN KEY (room_id)
-        REFERENCES rooms(id)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT,
 
     CHECK (is_active IN (0, 1))
 );

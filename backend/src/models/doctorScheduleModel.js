@@ -4,7 +4,6 @@ const {
   dbAll,
 } = require('../middlewares_helpers/sqlite3_helpers');
 
-// Mengambil daftar jadwal praktik.
 const findAllSchedules = async (filters = {}) => {
   let query = `
     SELECT
@@ -12,10 +11,10 @@ const findAllSchedules = async (filters = {}) => {
       d.title_prefix,
       d.full_name AS doctor_name,
       d.title_suffix,
-      d.specialization AS doctor_specialization
+      d.specialization AS doctor_specialization,
+      d.room_number
     FROM doctor_schedules s
     JOIN doctors d ON d.id = s.doctor_id
-    LEFT JOIN rooms r ON r.id = d.room_id
   `;
 
   const conditions = [];
@@ -47,7 +46,6 @@ const findAllSchedules = async (filters = {}) => {
   return dbAll(query, values);
 };
 
-// Mengambil satu jadwal berdasarkan ID.
 const findScheduleById = async (id) => {
   const query = `
     SELECT
@@ -64,7 +62,6 @@ const findScheduleById = async (id) => {
   return dbGet(query, [id]);
 };
 
-// Memeriksa apakah jadwal bertabrakan dengan jadwal aktif lain.
 const findOverlappingSchedule = async ({
   doctor_id,
   day_of_week,
@@ -93,7 +90,6 @@ const findOverlappingSchedule = async ({
   ]);
 };
 
-// Menambahkan jadwal praktik.
 const createSchedule = async (schedule) => {
   const query = `
     INSERT INTO doctor_schedules (
@@ -121,7 +117,6 @@ const createSchedule = async (schedule) => {
   return findScheduleById(result.lastID);
 };
 
-// Memperbarui data jadwal.
 const updateSchedule = async (id, schedule) => {
   const query = `
     UPDATE doctor_schedules
@@ -154,7 +149,6 @@ const updateSchedule = async (id, schedule) => {
   return findScheduleById(id);
 };
 
-// Mengaktifkan atau menonaktifkan jadwal.
 const updateScheduleStatus = async (id, isActive) => {
   const query = `
     UPDATE doctor_schedules

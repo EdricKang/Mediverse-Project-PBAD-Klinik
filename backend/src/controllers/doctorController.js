@@ -1,21 +1,18 @@
 const doctorModel = require('../models/doctorModel');
-const roomModel = require('../models/roomModel');
 
-const success = (res, status, message, data = null) => {
-  return res.status(status).json({
+const success = (res, status, message, data = null) =>
+  res.status(status).json({
     success: true,
     message,
     data,
   });
-};
 
-const fail = (res, status, message, error = null) => {
-  return res.status(status).json({
+const fail = (res, status, message, error = null) =>
+  res.status(status).json({
     success: false,
     message,
     error,
   });
-};
 
 const parseId = (rawId) => {
   if (!/^\d+$/.test(String(rawId))) {
@@ -27,6 +24,58 @@ const parseId = (rawId) => {
   return Number.isSafeInteger(id) && id > 0
     ? id
     : null;
+};
+
+const parseRoomNumber = (value) => {
+  if (typeof value === 'string') {
+    const normalized = value.trim();
+
+    return normalized.length > 0 && normalized.length <= 20
+      ? normalized
+      : null;
+  }
+
+  if (
+    typeof value === 'number' &&
+    Number.isSafeInteger(value) &&
+    value > 0
+  ) {
+    return String(value);
+  }
+
+  return null;
+};
+
+const normalizeOptionalText = (value) => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  return value.trim() || null;
+};
+
+const handleDoctorError = (res, error, action) => {
+  if (
+    error.message?.includes(
+      'UNIQUE constraint failed: doctors.room_number'
+    )
+  ) {
+    return fail(
+      res,
+      409,
+      'Nomor ruangan sudah digunakan dokter lain'
+    );
+  }
+
+  console.error(`[${action}]`, error);
+
+  return fail(
+    res,
+    500,
+    action === 'createDoctor'
+      ? 'Gagal menambahkan dokter'
+      : 'Gagal memperbarui data dokter'
+  );
 };
 
 const getAllDoctors = async (req, res) => {
@@ -42,7 +91,11 @@ const getAllDoctors = async (req, res) => {
   } catch (error) {
     console.error('[getAllDoctors]', error);
 
-    return fail(res, 500, 'Terjadi kesalahan pada server');
+    return fail(
+      res,
+      500,
+      'Terjadi kesalahan pada server'
+    );
   }
 };
 
@@ -69,9 +122,20 @@ const getDoctorById = async (req, res) => {
   } catch (error) {
     console.error('[getDoctorById]', error);
 
-    return fail(res, 500, 'Terjadi kesalahan pada server');
+    return fail(
+      res,
+      500,
+      'Terjadi kesalahan pada server'
+    );
   }
 };
+
+const optionalTextFields = [
+  'title_prefix',
+  'title_suffix',
+  'phone',
+  'email',
+];
 
 const createDoctor = async (req, res) => {
   const body = req.body ?? {};
@@ -86,10 +150,7 @@ const createDoctor = async (req, res) => {
       ? body.specialization.trim()
       : '';
 
-  const roomId = parseId(body.room_id);
-    if (!roomId) {
-    return fail(res, 400, 'room_id wajib diisi dengan ID ruangan yang valid');
-    }
+  const roomNumber = parseRoomNumber(body.room_number);
 
   if (!fullName || !specialization) {
     return fail(
@@ -99,14 +160,15 @@ const createDoctor = async (req, res) => {
     );
   }
 
-  const textFields = [
-    'title_prefix',
-    'title_suffix',
-    'phone',
-    'email',
-  ];
+  if (!roomNumber) {
+    return fail(
+      res,
+      400,
+      'room_number wajib diisi dengan nomor ruangan yang valid'
+    );
+  }
 
-  for (const field of textFields) {
+  for (const field of optionalTextFields) {
     if (
       body[field] !== undefined &&
       body[field] !== null &&
@@ -120,29 +182,15 @@ const createDoctor = async (req, res) => {
     }
   }
 
-  const normalizeOptionalText = (value) => {
-    if (typeof value !== 'string') {
-      return null;
-    }
-
-    return value.trim() || null;
-  };
-
   try {
-
-    const room = await roomModel.findRoomById(roomId);
-      if (!room) {
-      return fail(res, 404, 'Ruangan tidak ditemukan');
-      }
-
     const doctor = await doctorModel.createDoctor({
       title_prefix: normalizeOptionalText(body.title_prefix),
       full_name: fullName,
       title_suffix: normalizeOptionalText(body.title_suffix),
       specialization,
+      room_number: roomNumber,
       phone: normalizeOptionalText(body.phone),
       email: normalizeOptionalText(body.email),
-      room_id: roomId,
     });
 
     return success(
@@ -152,13 +200,11 @@ const createDoctor = async (req, res) => {
       doctor
     );
   } catch (error) {
-    if (error.message?.includes('UNIQUE constraint failed')) {
-      return fail(res, 409, 'Ruangan sudah digunakan dokter lain');
-    }
-
-    console.error('[createDoctor]', error);
-
-    return fail(res, 500, 'Gagal menambahkan dokter');
+    return handleDoctorError(
+      res,
+      error,
+      'createDoctor'
+    );
   }
 };
 
@@ -210,32 +256,30 @@ const updateDoctor = async (req, res) => {
     }
   }
 
-  try {
-    const normalized = { ...body };
+  const normalized = { ...body };
 
-    if (body.room_id !== undefined) {
-      const roomId = parseId(body.room_id);
+  if (body.room_number !== undefined) {
+    const roomNumber = parseRoomNumber(body.room_number);
 
-      if (!roomId) {
-        return fail(res, 400, 'room_id tidak valid');
-      }
-
-      const room = await roomModel.findRoomById(roomId);
-
-      if (!room) {
-        return fail(res, 404, 'Ruangan tidak ditemukan');
-      }
-
-  normalized.room_id = roomId;
-}
-
-    for (const field of textFields) {
-      if (typeof normalized[field] === 'string') {
-        normalized[field] =
-          normalized[field].trim() || null;
-      }
+    if (!roomNumber) {
+      return fail(
+        res,
+        400,
+        'room_number tidak valid'
+      );
     }
 
+    normalized.room_number = roomNumber;
+  }
+
+  for (const field of textFields) {
+    if (typeof normalized[field] === 'string') {
+      normalized[field] =
+        normalized[field].trim() || null;
+    }
+  }
+
+  try {
     const doctor = await doctorModel.updateDoctor(
       id,
       normalized
@@ -252,13 +296,11 @@ const updateDoctor = async (req, res) => {
       doctor
     );
   } catch (error) {
-    if (error.message?.includes('UNIQUE constraint failed')) {
-      return fail(res, 409, 'Ruangan sudah digunakan dokter lain');
-    }
-
-    console.error('[updateDoctor]', error);
-
-    return fail(res, 500, 'Gagal memperbarui dokter');
+    return handleDoctorError(
+      res,
+      error,
+      'updateDoctor'
+    );
   }
 };
 
@@ -297,7 +339,11 @@ const updateDoctorStatus = async (req, res) => {
   } catch (error) {
     console.error('[updateDoctorStatus]', error);
 
-    return fail(res, 500, 'Gagal memperbarui status dokter');
+    return fail(
+      res,
+      500,
+      'Gagal memperbarui status dokter'
+    );
   }
 };
 
