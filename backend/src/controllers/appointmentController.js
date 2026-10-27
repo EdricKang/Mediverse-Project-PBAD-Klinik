@@ -291,6 +291,28 @@ const getAllAppointments = async (req, res) => {
   }
 };
 
+const getAppointmentByBookingCode = async (req, res) => {
+  const bookingCode = (req.params.bookingCode || '').trim().toUpperCase();
+
+  if (!/^KLINIK-[A-Z0-9]{6,16}$/.test(bookingCode)) {
+    return fail(res, 400, 'Format kode booking tidak valid');
+  }
+
+  try {
+    const appointment = await appointmentModel.findAppointmentByBookingCode(bookingCode);
+
+    if (!appointment) {
+      return fail(res, 404, 'Appointment dengan kode booking tersebut tidak ditemukan');
+    }
+
+    return success(res, 200, 'Appointment berhasil ditemukan', appointment);
+  } catch (error) {
+    console.error('[getAppointmentByBookingCode]', error);
+
+    return fail(res, 500, 'Gagal mencari appointment berdasarkan kode booking');
+  }
+};
+
 const getAppointmentById = async (req, res) => {
   const id = parseId(req.params.id);
 
@@ -729,6 +751,7 @@ const updateAppointmentStatus = async (req, res) => {
 module.exports = {
   getAllAppointments,
   getAppointmentById,
+  getAppointmentByBookingCode,
   getAvailableSlots,
   createAppointment,
   updateAppointment,

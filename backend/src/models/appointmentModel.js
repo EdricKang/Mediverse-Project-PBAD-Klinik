@@ -189,6 +189,26 @@ const updateAppointmentStatus = async (id, status) => {
   return findAppointmentById(id);
 };
 
+const findAppointmentByBookingCode = async (bookingCode) => {
+  const query = `
+    SELECT
+      a.booking_code,
+      a.appointment_date,
+      a.appointment_time,
+      a.status,
+      d.title_prefix,
+      d.full_name AS doctor_name,
+      d.title_suffix,
+      d.specialization AS doctor_specialization,
+      d.room_number
+    FROM appointments a
+    JOIN doctors d ON a.doctor_id = d.id
+    WHERE a.booking_code = ?
+  `;
+
+  return dbGet(query, [bookingCode]);
+};
+
 const findBookedAppointmentTimes = async (
   doctorId,
   appointmentDate
@@ -208,6 +228,7 @@ const findBookedAppointmentTimes = async (
 module.exports = {
   findAllAppointments,
   findAppointmentById,
+  findAppointmentByBookingCode,
   createAppointment,
   updateAppointment,
   updateAppointmentStatus,

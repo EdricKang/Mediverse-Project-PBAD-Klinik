@@ -8,6 +8,7 @@ router.get(
   appointmentController.getAvailableSlots
 );
 
+router.get('/booking/:bookingCode', appointmentController.getAppointmentByBookingCode);
 router.get('/', appointmentController.getAllAppointments);
 router.get('/:id', appointmentController.getAppointmentById);
 
