@@ -67,6 +67,17 @@ const timeToMinutes = (time) => {
   return hours * 60 + minutes;
 };
 
+const minutesToTime = (minutes) => {
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  return (
+    String(hours).padStart(2, '0') +
+    ':' +
+    String(remainingMinutes).padStart(2, '0')
+  );
+};
+
 const getLocalDate = () => {
   const now = new Date();
 
@@ -75,6 +86,157 @@ const getLocalDate = () => {
     String(now.getMonth() + 1).padStart(2, '0'),
     String(now.getDate()).padStart(2, '0'),
   ].join('-');
+};
+
+const getAvailableSlots = async (req, res) => {
+  const doctorId = parseId(req.query.doctor_id);
+  const appointmentDate = req.query.date;
+
+  if (!doctorId) {
+    return fail(
+      res,
+      400,
+      'doctor_id wajib diisi dengan ID yang valid'
+    );
+  }
+
+  if (!validDate(appointmentDate)) {
+    return fail(
+      res,
+      400,
+      'Parameter date wajib menggunakan format YYYY-MM-DD'
+    );
+  }
+
+  const today = getLocalDate();
+
+  if (appointmentDate < today) {
+    return fail(
+      res,
+      400,
+      'Tanggal tidak boleh berada di masa lalu'
+    );
+  }
+
+  try {
+    const doctor =
+      await doctorModel.findDoctorById(doctorId);
+
+    if (!doctor) {
+      return fail(res, 404, 'Dokter tidak ditemukan');
+    }
+
+    if (Number(doctor.is_active) !== 1) {
+      return fail(
+        res,
+        400,
+        'Dokter sedang tidak aktif'
+      );
+    }
+
+    const [year, month, day] =
+      appointmentDate.split('-').map(Number);
+
+    const javascriptDay = new Date(
+      Date.UTC(year, month - 1, day)
+    ).getUTCDay();
+
+    const dayOfWeek =
+      javascriptDay === 0 ? 7 : javascriptDay;
+
+    const schedules =
+      await doctorScheduleModel.findAllSchedules({
+        doctor_id: doctorId,
+        day_of_week: dayOfWeek,
+        is_active: 1,
+      });
+
+    if (schedules.length === 0) {
+      return success(
+        res,
+        200,
+        'Tidak ada jadwal praktik dokter pada tanggal tersebut',
+        []
+      );
+    }
+
+    const bookedAppointments =
+      await appointmentModel.findBookedAppointmentTimes(
+        doctorId,
+        appointmentDate
+      );
+
+    const bookedTimes = new Set(
+      bookedAppointments.map(
+        (appointment) => appointment.appointment_time
+      )
+    );
+
+    const availableSlots = new Set();
+
+    const now = new Date();
+    const currentTime = [
+      String(now.getHours()).padStart(2, '0'),
+      String(now.getMinutes()).padStart(2, '0'),
+    ].join(':');
+
+    for (const schedule of schedules) {
+      const startMinutes =
+        timeToMinutes(schedule.start_time);
+
+      const endMinutes =
+        timeToMinutes(schedule.end_time);
+
+      const duration =
+        Number(schedule.slot_duration_minutes);
+
+      if (
+        !Number.isInteger(duration) ||
+        duration <= 0 ||
+        startMinutes >= endMinutes
+      ) {
+        continue;
+      }
+
+      for (
+        let minutes = startMinutes;
+        minutes + duration <= endMinutes;
+        minutes += duration
+      ) {
+        const slot = minutesToTime(minutes);
+
+        if (bookedTimes.has(slot)) {
+          continue;
+        }
+
+        if (
+          appointmentDate === today &&
+          slot <= currentTime
+        ) {
+          continue;
+        }
+
+        availableSlots.add(slot);
+      }
+    }
+
+    const result = [...availableSlots].sort();
+
+    return success(
+      res,
+      200,
+      'Berhasil mengambil slot waktu yang tersedia',
+      result
+    );
+  } catch (error) {
+    console.error('[getAvailableSlots]', error);
+
+    return fail(
+      res,
+      500,
+      'Gagal mengambil slot waktu yang tersedia'
+    );
+  }
 };
 
 const getAllAppointments = async (req, res) => {
@@ -486,8 +648,7 @@ const updateAppointment = async (req, res) => {
       });
 
     return success(
-      res,
-      200,
+      res, 200,
       'Appointment berhasil diperbarui',
       appointment
     );
@@ -568,6 +729,7 @@ const updateAppointmentStatus = async (req, res) => {
 module.exports = {
   getAllAppointments,
   getAppointmentById,
+  getAvailableSlots,
   createAppointment,
   updateAppointment,
   updateAppointmentStatus,

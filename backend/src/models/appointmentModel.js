@@ -189,10 +189,27 @@ const updateAppointmentStatus = async (id, status) => {
   return findAppointmentById(id);
 };
 
+const findBookedAppointmentTimes = async (
+  doctorId,
+  appointmentDate
+) => {
+  const query = `
+    SELECT appointment_time
+    FROM appointments
+    WHERE doctor_id = ?
+      AND appointment_date = ?
+      AND status IN ('pending', 'confirmed')
+    ORDER BY appointment_time ASC
+  `;
+
+  return dbAll(query, [doctorId, appointmentDate]);
+};
+
 module.exports = {
   findAllAppointments,
   findAppointmentById,
   createAppointment,
   updateAppointment,
   updateAppointmentStatus,
+  findBookedAppointmentTimes,
 };

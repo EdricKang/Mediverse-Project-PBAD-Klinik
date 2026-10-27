@@ -262,11 +262,7 @@ const updateDoctor = async (req, res) => {
     const roomNumber = parseRoomNumber(body.room_number);
 
     if (!roomNumber) {
-      return fail(
-        res,
-        400,
-        'room_number tidak valid'
-      );
+      return fail(res, 400, 'room_number tidak valid');
     }
 
     normalized.room_number = roomNumber;
@@ -289,18 +285,9 @@ const updateDoctor = async (req, res) => {
       return fail(res, 404, 'Dokter tidak ditemukan');
     }
 
-    return success(
-      res,
-      200,
-      'Data dokter berhasil diperbarui',
-      doctor
-    );
+    return success(res, 200, 'Data dokter berhasil diperbarui', doctor);
   } catch (error) {
-    return handleDoctorError(
-      res,
-      error,
-      'updateDoctor'
-    );
+    return handleDoctorError(res, error, 'updateDoctor');
   }
 };
 
@@ -313,11 +300,7 @@ const updateDoctorStatus = async (req, res) => {
   }
 
   if (![true, false, 1, 0].includes(is_active)) {
-    return fail(
-      res,
-      400,
-      'is_active harus berupa true, false, 1, atau 0'
-    );
+    return fail(res, 400, 'is_active harus berupa true, false, 1, atau 0');
   }
 
   try {
@@ -330,20 +313,12 @@ const updateDoctorStatus = async (req, res) => {
       return fail(res, 404, 'Dokter tidak ditemukan');
     }
 
-    return success(
-      res,
-      200,
-      'Status dokter berhasil diperbarui',
-      doctor
-    );
+    return success(res, 200, 'Status dokter berhasil diperbarui', doctor);
+
   } catch (error) {
     console.error('[updateDoctorStatus]', error);
 
-    return fail(
-      res,
-      500,
-      'Gagal memperbarui status dokter'
-    );
+    return fail(res, 500, 'Gagal memperbarui status dokter');
   }
 };
 
