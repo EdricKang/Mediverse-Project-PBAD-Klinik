@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { isAxiosError } from 'axios'
 import api from '../services/api'
 
 interface Doctor {
@@ -34,6 +36,14 @@ function BookingPage() {
   const [doctorSchedules, setDoctorSchedules] = useState<DoctorSchedule[]>([])
   const [isLoadingSchedules, setIsLoadingSchedules] = useState(false)
   const [scheduleError, setScheduleError] = useState('')
+  const [patientName, setPatientName] = useState('')
+  const [patientPhone, setPatientPhone] = useState('')
+  const [patientBirthDate, setPatientBirthDate] = useState('')
+  const [patientGender, setPatientGender] = useState('')
+  const [patientComplaint, setPatientComplaint] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
+  const navigate = useNavigate()
 
   const selectedDate = appointmentDate
   ? new Date(`${appointmentDate}T00:00:00`)
@@ -154,6 +164,70 @@ function BookingPage() {
     fetchAvailableSlots()
   }, [selectedDoctor, appointmentDate])
 
+  const handleBookingSubmit = async (
+    event: FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault()
+    setSubmitError('')
+
+    if (!selectedDoctor || !appointmentDate || !selectedTime) {
+      setSubmitError('Silakan lengkapi pilihan dokter dan jadwal kunjungan.')
+      return
+    }
+
+    if (!isPracticeDay) {
+      setSubmitError('Dokter tidak praktik pada tanggal yang dipilih.')
+      return
+    }
+
+    if (!availableSlots.includes(selectedTime)) {
+      setSubmitError('Slot waktu tidak tersedia. Silakan pilih waktu lain.')
+      return
+    }
+
+    setIsSubmitting(true)
+
+    try {
+      const patientResponse = await api.post('/patients', {
+        full_name: patientName.trim(),
+        phone: patientPhone.trim(),
+        date_of_birth: patientBirthDate,
+        gender: patientGender || null,
+      })
+
+      const patientId = patientResponse.data.data.id
+
+      const appointmentResponse = await api.post('/appointments', {
+        patient_id: patientId,
+        doctor_id: Number(selectedDoctor),
+        appointment_date: appointmentDate,
+        appointment_time: selectedTime,
+        complaint: patientComplaint.trim() || null,
+      })
+
+      navigate('/booking/success', {
+        state: {
+          appointment: appointmentResponse.data.data,
+        },
+      })
+    } catch (error) {
+      if (isAxiosError(error)) {
+        const apiError = error.response?.data?.error
+
+        const message =
+          (typeof apiError === 'string' && apiError) ||
+          error.response?.data?.message ||
+          'Pemesanan gagal. Silakan coba kembali.'
+
+        setSubmitError(message)
+      } else {
+        setSubmitError('Terjadi kesalahan. Silakan coba kembali.')
+      }
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   const practiceDayNames = [
     'Senin',
     'Selasa',
@@ -181,7 +255,7 @@ function BookingPage() {
           </p>
         </div>
 
-        <form className="booking-form">
+        <form className="booking-form" onSubmit={handleBookingSubmit}>
           <h2>Data Pasien</h2>
 
           <div className="form-group">
@@ -190,6 +264,8 @@ function BookingPage() {
               type="text"
               id="patient-name"
               placeholder="Masukkan nama lengkap"
+              value={patientName}
+              onChange={(e) => setPatientName(e.target.value)}
               required
             />
           </div>
@@ -202,6 +278,8 @@ function BookingPage() {
               placeholder="Masukkan nomor telepon"
               minLength={8}
               maxLength={20}
+              value={patientPhone}
+              onChange={(e) => setPatientPhone(e.target.value)}
               required
             />
           </div>
@@ -212,6 +290,8 @@ function BookingPage() {
               type="date"
               id="patient-birth"
               max={new Date().toLocaleDateString('en-CA')}
+              value={patientBirthDate}
+              onChange={(e) => setPatientBirthDate(e.target.value)}
               required
             />
           </div>
@@ -220,7 +300,11 @@ function BookingPage() {
             <label htmlFor="patient-gender">
               Jenis Kelamin (Opsional)
             </label>
-            <select id="patient-gender" defaultValue="">
+            <select
+              id="patient-gender"
+              value={patientGender}
+              onChange={(e) => setPatientGender(e.target.value)}
+            >
               <option value="">Tidak ingin memilih</option>
               <option value="Laki-laki">Laki-laki</option>
               <option value="Perempuan">Perempuan</option>
@@ -235,6 +319,8 @@ function BookingPage() {
               id="patient-complaint"
               rows={3}
               placeholder="Tuliskan keluhan yang ingin dikonsultasikan"
+              value={patientComplaint}
+              onChange={(e) => setPatientComplaint(e.target.value)}
             />
           </div>
 
@@ -246,6 +332,7 @@ function BookingPage() {
                 id="doctor"
                 value={selectedDoctor}
                 onChange={(e) => setSelectedDoctor(e.target.value)}
+                required
               >
               <option value="" disabled>
                 Pilih dokter
@@ -334,6 +421,7 @@ function BookingPage() {
                 min={new Date().toLocaleDateString('en-CA')}
                 value={appointmentDate}
                 onChange={(e) => setAppointmentDate(e.target.value)}
+                required
                 disabled={
                   !selectedDoctor ||
                   isLoadingSchedules ||
@@ -366,6 +454,7 @@ function BookingPage() {
                 id="appointment-time"
                 value={selectedTime}
                 onChange={(e) => setSelectedTime(e.target.value)}
+                required
                 disabled={
                   !selectedDoctor ||
                   !appointmentDate ||
@@ -420,9 +509,16 @@ function BookingPage() {
             pendaftaran pasien dan pemesanan appointment.
           </p>
 
-          <button type="button" disabled>
-            Buat Janji Temu
+          {submitError && (
+            <p className="booking-warning">
+              {submitError}
+            </p>
+          )}
+
+          <button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Memproses...' : 'Buat Janji Temu'}
           </button>
+
         </form>
       </div>
     </section>
