@@ -1,4 +1,42 @@
+import { useEffect, useState } from 'react'
+import api from '../services/api'
+
+interface Doctor {
+  id: number
+  title_prefix: string | null
+  full_name: string
+  title_suffix: string | null
+  specialization: string
+  room_number: string | null
+  is_active: number | boolean
+}
+
+
 function BookingPage() {
+  
+  const [doctors, setDoctors] = useState<Doctor[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        const response = await api.get('/doctors')
+        const doctorData: Doctor[] = response.data.data ?? []
+
+        setDoctors(
+          doctorData.filter((doctor) => Number(doctor.is_active) === 1)
+        )
+      } catch {
+        setError('Daftar dokter belum dapat dimuat.')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchDoctors()
+  }, [])
+
   return (
     <section className="booking-page">
       <div className="container">
@@ -33,6 +71,32 @@ function BookingPage() {
               <option value="" disabled>
                 Pilih dokter
               </option>
+              
+              {isLoading && (
+                <option value="" disabled>
+                  Memuat daftar dokter...
+                </option>
+              )}
+
+              {!isLoading && error && (
+                <option value="" disabled>
+                  {error}
+                </option>
+              )}
+
+              {!isLoading && !error && doctors.length === 0 && (
+                <option value="" disabled>
+                  Belum ada dokter aktif.
+                </option>
+              )}
+
+              {!isLoading && !error && doctors.map((doctor) => (
+                <option key={doctor.id} value={doctor.id}>
+                  {[doctor.title_prefix, doctor.full_name, doctor.title_suffix]
+                    .filter(Boolean)
+                    .join(' ')} - {doctor.specialization}
+                </option>
+              ))}
             </select>
           </div>
 
