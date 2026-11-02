@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { isAxiosError } from 'axios'
 import api from '../services/api'
@@ -22,20 +22,53 @@ interface DoctorSchedule {
   is_active: number | boolean
 }
 
+type BookingField =
+  | 'patientName'
+  | 'patientPhone'
+  | 'patientBirthDate'
+  | 'selectedDoctor'
+  | 'appointmentDate'
+  | 'selectedTime'
+
+type BookingFieldErrors = Partial<Record<BookingField, string>>
+
+const getJakartaDate = (): string => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date())
+
+  const getPart = (type: string) =>
+    parts.find((part) => part.type === type)?.value ?? ''
+
+  return `${getPart('year')}-${getPart('month')}-${getPart('day')}`
+}
+
+const practiceDayNames = [
+  'Senin',
+  'Selasa',
+  'Rabu',
+  'Kamis',
+  'Jumat',
+  'Sabtu',
+  'Minggu',
+]
+
 function BookingPage() {
-  
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedDoctor, setSelectedDoctor] = useState('')
+  const [doctorSchedules, setDoctorSchedules] = useState<DoctorSchedule[]>([])
+  const [isLoadingSchedules, setIsLoadingSchedules] = useState(false)
+  const [scheduleError, setScheduleError] = useState('')
   const [appointmentDate, setAppointmentDate] = useState('')
   const [availableSlots, setAvailableSlots] = useState<string[]>([])
   const [selectedTime, setSelectedTime] = useState('')
   const [isLoadingSlots, setIsLoadingSlots] = useState(false)
   const [slotError, setSlotError] = useState('')
-  const [doctorSchedules, setDoctorSchedules] = useState<DoctorSchedule[]>([])
-  const [isLoadingSchedules, setIsLoadingSchedules] = useState(false)
-  const [scheduleError, setScheduleError] = useState('')
   const [patientName, setPatientName] = useState('')
   const [patientPhone, setPatientPhone] = useState('')
   const [patientBirthDate, setPatientBirthDate] = useState('')
@@ -43,26 +76,31 @@ function BookingPage() {
   const [patientComplaint, setPatientComplaint] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<BookingFieldErrors>({})
+  const shouldScrollToFirstError = useRef(false)
   const navigate = useNavigate()
+  const today = getJakartaDate()
 
   const selectedDate = appointmentDate
-  ? new Date(`${appointmentDate}T00:00:00`)
-  : null
+    ? new Date(`${appointmentDate}T00:00:00Z`)
+    : null
 
   const selectedDayOfWeek = selectedDate
-    ? selectedDate.getDay() === 0
+    ? selectedDate.getUTCDay() === 0
       ? 7
-      : selectedDate.getDay()
+      : selectedDate.getUTCDay()
     : null
 
   const selectedDayName = selectedDate
     ? selectedDate.toLocaleDateString('id-ID', {
+        timeZone: 'Asia/Jakarta',
         weekday: 'long',
       })
     : ''
 
   const formattedAppointmentDate = selectedDate
     ? selectedDate.toLocaleDateString('id-ID', {
+        timeZone: 'Asia/Jakarta',
         weekday: 'long',
         day: 'numeric',
         month: 'long',
@@ -73,35 +111,83 @@ function BookingPage() {
   const isPracticeDay =
     selectedDayOfWeek !== null &&
     doctorSchedules.some(
-      (schedule) =>
-        Number(schedule.day_of_week) === selectedDayOfWeek
+      (schedule) => Number(schedule.day_of_week) === selectedDayOfWeek
     )
 
+  const availablePracticeDays = [
+    ...new Set(
+      doctorSchedules
+        .map((schedule) => practiceDayNames[schedule.day_of_week - 1])
+        .filter(Boolean)
+    ),
+  ].join(', ')
+
   useEffect(() => {
+    if (!shouldScrollToFirstError.current) {
+      return
+    }
+
+    const firstInvalidField =
+      document.querySelector<HTMLElement>(
+        '.booking-form [aria-invalid="true"]'
+      )
+
+    if (firstInvalidField) {
+      firstInvalidField.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
+
+      if (!firstInvalidField.hasAttribute('disabled')) {
+        firstInvalidField.focus({ preventScroll: true })
+      }
+    }
+
+    shouldScrollToFirstError.current = false
+  }, [fieldErrors])
+
+  useEffect(() => {
+    let isCancelled = false
+
     const fetchDoctors = async () => {
       try {
         const response = await api.get('/doctors')
         const doctorData: Doctor[] = response.data.data ?? []
 
-        setDoctors(
-          doctorData.filter((doctor) => Number(doctor.is_active) === 1)
-        )
+        if (!isCancelled) {
+          setDoctors(
+            doctorData.filter((doctor) => Number(doctor.is_active) === 1)
+          )
+        }
       } catch {
-        setError('Daftar dokter belum dapat dimuat.')
+        if (!isCancelled) {
+          setError(
+            'Daftar dokter belum dapat dimuat. Silakan muat ulang halaman.'
+          )
+        }
       } finally {
-        setIsLoading(false)
+        if (!isCancelled) {
+          setIsLoading(false)
+        }
       }
     }
 
     fetchDoctors()
+
+    return () => {
+      isCancelled = true
+    }
   }, [])
 
   useEffect(() => {
     if (!selectedDoctor) {
       setDoctorSchedules([])
       setScheduleError('')
+      setIsLoadingSchedules(false)
       return
     }
+
+    let isCancelled = false
 
     const fetchDoctorSchedules = async () => {
       setIsLoadingSchedules(true)
@@ -116,26 +202,45 @@ function BookingPage() {
           },
         })
 
-        const scheduleData: DoctorSchedule[] = response.data.data ?? []
-
-        setDoctorSchedules(scheduleData)
+        if (!isCancelled) {
+          const scheduleData: DoctorSchedule[] = response.data.data ?? []
+          setDoctorSchedules(scheduleData)
+        }
       } catch {
-        setScheduleError('Jadwal praktik dokter belum dapat dimuat.')
+        if (!isCancelled) {
+          setScheduleError('Jadwal praktik dokter belum dapat dimuat.')
+        }
       } finally {
-        setIsLoadingSchedules(false)
+        if (!isCancelled) {
+          setIsLoadingSchedules(false)
+        }
       }
     }
 
     fetchDoctorSchedules()
+
+    return () => {
+      isCancelled = true
+    }
   }, [selectedDoctor])
 
   useEffect(() => {
-    if (!selectedDoctor || !appointmentDate) {
+    if (
+      !selectedDoctor ||
+      !appointmentDate ||
+      isLoadingSchedules ||
+      scheduleError ||
+      doctorSchedules.length === 0 ||
+      !isPracticeDay
+    ) {
       setAvailableSlots([])
       setSelectedTime('')
       setSlotError('')
+      setIsLoadingSlots(false)
       return
     }
+
+    let isCancelled = false
 
     const fetchAvailableSlots = async () => {
       setIsLoadingSlots(true)
@@ -151,18 +256,139 @@ function BookingPage() {
           },
         })
 
-        const slotData: string[] = response.data.data ?? []
-
-        setAvailableSlots(slotData)
+        if (!isCancelled) {
+          const slotData: string[] = response.data.data ?? []
+          setAvailableSlots(slotData)
+        }
       } catch {
-        setSlotError('Jadwal praktik belum dapat dimuat. Silakan coba kembali.')
+        if (!isCancelled) {
+          setSlotError(
+            'Slot waktu belum dapat dimuat. Silakan coba kembali.'
+          )
+        }
       } finally {
-        setIsLoadingSlots(false)
+        if (!isCancelled) {
+          setIsLoadingSlots(false)
+        }
       }
     }
 
     fetchAvailableSlots()
-  }, [selectedDoctor, appointmentDate])
+
+    return () => {
+      isCancelled = true
+    }
+  }, [
+    selectedDoctor,
+    appointmentDate,
+    isLoadingSchedules,
+    scheduleError,
+    doctorSchedules,
+    isPracticeDay,
+  ])
+
+  const clearFieldError = (field: BookingField) => {
+    setFieldErrors((currentErrors) => {
+      const updatedErrors = { ...currentErrors }
+      delete updatedErrors[field]
+      return updatedErrors
+    })
+
+    setSubmitError('')
+  }
+
+  const validateBookingForm = (): boolean => {
+    const errors: BookingFieldErrors = {}
+    const normalizedPhone = patientPhone.trim().replace(/[\s-]/g, '')
+
+    if (!patientName.trim()) {
+      errors.patientName = 'Nama lengkap wajib diisi.'
+    } else if (patientName.trim().length < 3) {
+      errors.patientName = 'Nama lengkap minimal 3 karakter.'
+    }
+
+    if (!normalizedPhone) {
+      errors.patientPhone = 'Nomor telepon wajib diisi.'
+    } else if (!/^\+?\d{8,20}$/.test(normalizedPhone)) {
+      errors.patientPhone =
+        'Nomor telepon harus terdiri dari 8–20 digit dan boleh diawali +.'
+    }
+
+    if (!patientBirthDate) {
+      errors.patientBirthDate = 'Tanggal lahir wajib diisi.'
+    } else if (patientBirthDate > today) {
+      errors.patientBirthDate =
+        'Tanggal lahir tidak boleh melewati hari ini.'
+    }
+
+    if (isLoading) {
+      errors.selectedDoctor =
+        'Daftar dokter sedang dimuat. Silakan tunggu.'
+    } else if (error) {
+      errors.selectedDoctor =
+        'Daftar dokter gagal dimuat. Silakan muat ulang halaman.'
+    } else if (doctors.length === 0) {
+      errors.selectedDoctor = 'Belum ada dokter aktif yang tersedia.'
+    } else if (!selectedDoctor) {
+      errors.selectedDoctor = 'Silakan pilih dokter terlebih dahulu.'
+    } else if (
+      !doctors.some((doctor) => String(doctor.id) === selectedDoctor)
+    ) {
+      errors.selectedDoctor =
+        'Pilihan dokter tidak valid. Silakan pilih kembali.'
+    }
+
+    if (!selectedDoctor) {
+      errors.appointmentDate =
+        'Pilih dokter terlebih dahulu sebelum menentukan tanggal kunjungan.'
+    } else if (isLoadingSchedules) {
+      errors.appointmentDate =
+        'Jadwal praktik dokter sedang dimuat. Silakan tunggu.'
+    } else if (scheduleError) {
+      errors.appointmentDate =
+        'Jadwal praktik dokter gagal dimuat. Silakan pilih ulang dokter.'
+    } else if (doctorSchedules.length === 0) {
+      errors.appointmentDate =
+        'Dokter belum memiliki jadwal praktik aktif.'
+    } else if (!appointmentDate) {
+      errors.appointmentDate = 'Tanggal kunjungan wajib dipilih.'
+    } else if (appointmentDate < today) {
+      errors.appointmentDate =
+        'Tanggal kunjungan tidak boleh sudah lewat.'
+    } else if (!isPracticeDay) {
+      errors.appointmentDate =
+        'Dokter tidak praktik pada tanggal yang dipilih.'
+    }
+
+    if (
+      selectedDoctor &&
+      appointmentDate &&
+      !isLoadingSchedules &&
+      !scheduleError &&
+      doctorSchedules.length > 0 &&
+      isPracticeDay
+    ) {
+      if (isLoadingSlots) {
+        errors.selectedTime =
+          'Slot waktu sedang dimuat. Silakan tunggu.'
+      } else if (slotError) {
+        errors.selectedTime =
+          'Slot waktu gagal dimuat. Silakan pilih ulang tanggal atau dokter.'
+      } else if (availableSlots.length === 0) {
+        errors.selectedTime =
+          'Tidak ada slot waktu tersedia pada tanggal ini. Silakan pilih tanggal lain.'
+      } else if (!selectedTime) {
+        errors.selectedTime = 'Silakan pilih waktu kunjungan.'
+      } else if (!availableSlots.includes(selectedTime)) {
+        errors.selectedTime =
+          'Slot waktu tidak tersedia. Silakan pilih waktu lain.'
+      }
+    }
+
+    setFieldErrors(errors)
+
+    return Object.keys(errors).length === 0
+  }
 
   const handleBookingSubmit = async (
     event: FormEvent<HTMLFormElement>
@@ -170,33 +396,27 @@ function BookingPage() {
     event.preventDefault()
     setSubmitError('')
 
-    if (!selectedDoctor || !appointmentDate || !selectedTime) {
-      setSubmitError('Silakan lengkapi pilihan dokter dan jadwal kunjungan.')
+    if (isSubmitting) {
       return
     }
 
-    if (!isPracticeDay) {
-      setSubmitError('Dokter tidak praktik pada tanggal yang dipilih.')
-      return
-    }
-
-    if (!availableSlots.includes(selectedTime)) {
-      setSubmitError('Slot waktu tidak tersedia. Silakan pilih waktu lain.')
+    if (!validateBookingForm()) {
+      shouldScrollToFirstError.current = true
       return
     }
 
     setIsSubmitting(true)
 
     try {
+      const normalizedPhone = patientPhone.trim().replace(/[\s-]/g, '')
       const patientResponse = await api.post('/patients', {
         full_name: patientName.trim(),
-        phone: patientPhone.trim(),
+        phone: normalizedPhone,
         date_of_birth: patientBirthDate,
         gender: patientGender || null,
       })
 
       const patientId = patientResponse.data.data.id
-
       const appointmentResponse = await api.post('/appointments', {
         patient_id: patientId,
         doctor_id: Number(selectedDoctor),
@@ -210,14 +430,16 @@ function BookingPage() {
           appointment: appointmentResponse.data.data,
         },
       })
-    } catch (error) {
-      if (isAxiosError(error)) {
-        const apiError = error.response?.data?.error
-
+    } catch (requestError) {
+      if (isAxiosError(requestError)) {
+        const apiError = requestError.response?.data?.error
+        const apiMessage = requestError.response?.data?.message
         const message =
           (typeof apiError === 'string' && apiError) ||
-          error.response?.data?.message ||
-          'Pemesanan gagal. Silakan coba kembali.'
+          (typeof apiMessage === 'string' && apiMessage) ||
+          (!requestError.response
+            ? 'Tidak dapat terhubung ke server. Periksa koneksi backend.'
+            : 'Pemesanan gagal. Silakan periksa data dan coba kembali.')
 
         setSubmitError(message)
       } else {
@@ -227,21 +449,6 @@ function BookingPage() {
       setIsSubmitting(false)
     }
   }
-
-  const practiceDayNames = [
-    'Senin',
-    'Selasa',
-    'Rabu',
-    'Kamis',
-    'Jumat',
-    'Sabtu',
-    'Minggu',
-  ]
-
-  const availablePracticeDays = doctorSchedules
-    .map((schedule) => practiceDayNames[schedule.day_of_week - 1])
-    .filter(Boolean)
-    .join(', ')
 
   return (
     <section className="booking-page">
@@ -254,46 +461,100 @@ function BookingPage() {
             dengan dokter.
           </p>
         </div>
-
-        <form className="booking-form" onSubmit={handleBookingSubmit}>
+        <form className="booking-form" onSubmit={handleBookingSubmit} noValidate>
           <h2>Data Pasien</h2>
-
           <div className="form-group">
             <label htmlFor="patient-name">Nama Lengkap *</label>
             <input
-              type="text"
               id="patient-name"
+              type="text"
               placeholder="Masukkan nama lengkap"
               value={patientName}
-              onChange={(e) => setPatientName(e.target.value)}
+              autoComplete="name"
+              aria-invalid={Boolean(fieldErrors.patientName)}
+              aria-describedby={
+                fieldErrors.patientName ? 'patient-name-error' : undefined
+              }
+              onChange={(event) => {
+                setPatientName(event.target.value)
+                clearFieldError('patientName')
+              }}
               required
             />
+
+            {fieldErrors.patientName && (
+              <p
+                id="patient-name-error"
+                className="form-error"
+                role="alert"
+              >
+                {fieldErrors.patientName}
+              </p>
+            )}
           </div>
 
           <div className="form-group">
             <label htmlFor="patient-phone">Nomor Telepon *</label>
             <input
-              type="tel"
               id="patient-phone"
-              placeholder="Masukkan nomor telepon"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="Contoh: 081234567890"
+              value={patientPhone}
+              aria-invalid={Boolean(fieldErrors.patientPhone)}
+              aria-describedby={
+                fieldErrors.patientPhone ? 'patient-phone-error' : undefined
+              }
+              onChange={(event) => {
+                setPatientPhone(event.target.value)
+                clearFieldError('patientPhone')
+              }}
+              required
               minLength={8}
               maxLength={20}
-              value={patientPhone}
-              onChange={(e) => setPatientPhone(e.target.value)}
-              required
             />
+
+            {fieldErrors.patientPhone && (
+              <p
+                id="patient-phone-error"
+                className="form-error"
+                role="alert"
+              >
+                {fieldErrors.patientPhone}
+              </p>
+            )}
           </div>
 
           <div className="form-group">
             <label htmlFor="patient-birth">Tanggal Lahir *</label>
             <input
-              type="date"
               id="patient-birth"
-              max={new Date().toLocaleDateString('en-CA')}
+              type="date"
+              max={today}
               value={patientBirthDate}
-              onChange={(e) => setPatientBirthDate(e.target.value)}
+              aria-invalid={Boolean(fieldErrors.patientBirthDate)}
+              aria-describedby={
+                fieldErrors.patientBirthDate
+                  ? 'patient-birth-date-error'
+                  : undefined
+              }
+              onChange={(event) => {
+                setPatientBirthDate(event.target.value)
+                clearFieldError('patientBirthDate')
+              }}
               required
             />
+
+            {fieldErrors.patientBirthDate && (
+              <p
+                id="patient-birth-date-error"
+                className="form-error"
+                role="alert"
+              >
+                {fieldErrors.patientBirthDate}
+              </p>
+            )}
           </div>
 
           <div className="form-group">
@@ -303,7 +564,7 @@ function BookingPage() {
             <select
               id="patient-gender"
               value={patientGender}
-              onChange={(e) => setPatientGender(e.target.value)}
+              onChange={(event) => setPatientGender(event.target.value)}
             >
               <option value="">Tidak ingin memilih</option>
               <option value="Laki-laki">Laki-laki</option>
@@ -315,55 +576,78 @@ function BookingPage() {
             <label htmlFor="patient-complaint">
               Keluhan (Opsional)
             </label>
+
             <textarea
               id="patient-complaint"
               rows={3}
               placeholder="Tuliskan keluhan yang ingin dikonsultasikan"
               value={patientComplaint}
-              onChange={(e) => setPatientComplaint(e.target.value)}
+              onChange={(event) => setPatientComplaint(event.target.value)}
             />
           </div>
 
           <h2>Jadwal Kunjungan</h2>
 
           <div className="form-group">
-            <label htmlFor="doctor">Pilih Dokter</label>
-              <select
-                id="doctor"
-                value={selectedDoctor}
-                onChange={(e) => setSelectedDoctor(e.target.value)}
-                required
-              >
-              <option value="" disabled>
-                Pilih dokter
-              </option>
-              
-              {isLoading && (
-                <option value="" disabled>
-                  Memuat daftar dokter...
-                </option>
-              )}
+            <label htmlFor="doctor">Pilih Dokter *</label>
 
-              {!isLoading && error && (
-                <option value="" disabled>
-                  {error}
-                </option>
-              )}
+            {isLoading && (
+              <p className="booking-hint" role="status">
+                Memuat daftar dokter...
+              </p>
+            )}
 
-              {!isLoading && !error && doctors.length === 0 && (
-                <option value="" disabled>
-                  Belum ada dokter aktif.
-                </option>
-              )}
+            {!isLoading && error && (
+              <p className="form-error" role="alert">
+                {error}
+              </p>
+            )}
 
-              {!isLoading && !error && doctors.map((doctor) => (
+            {!isLoading && !error && doctors.length === 0 && (
+              <p className="booking-hint" role="status">
+                Belum ada dokter aktif yang tersedia.
+              </p>
+            )}
+
+            <select
+              id="doctor"
+              value={selectedDoctor}
+              onChange={(event) => {
+                setSelectedDoctor(event.target.value)
+                setDoctorSchedules([])
+                setAppointmentDate('')
+                setSelectedTime('')
+                setAvailableSlots([])
+
+                clearFieldError('selectedDoctor')
+                clearFieldError('appointmentDate')
+                clearFieldError('selectedTime')
+              }}
+              aria-invalid={Boolean(fieldErrors.selectedDoctor)}
+              aria-describedby={
+                fieldErrors.selectedDoctor ? 'doctor-error' : undefined
+              }
+              required
+              disabled={isLoading || Boolean(error) || doctors.length === 0}
+            >
+              <option value="">Pilih Dokter</option>
+
+              {doctors.map((doctor) => (
                 <option key={doctor.id} value={doctor.id}>
-                  {[doctor.title_prefix, doctor.full_name, doctor.title_suffix]
-                    .filter(Boolean)
-                    .join(' ')} - {doctor.specialization}
+                  {doctor.title_prefix ? `${doctor.title_prefix} ` : ''}
+                  {doctor.full_name}
+                  {doctor.title_suffix ? ` ${doctor.title_suffix}` : ''}
+                  {' - '}
+                  {doctor.specialization}
                 </option>
               ))}
             </select>
+
+            {fieldErrors.selectedDoctor && (
+              <p id="doctor-error" className="form-error" role="alert">
+                {fieldErrors.selectedDoctor}
+              </p>
+            )}
           </div>
 
           {selectedDoctor && (
@@ -371,35 +655,34 @@ function BookingPage() {
               <strong>Jadwal Praktik Dokter</strong>
 
               {isLoadingSchedules && (
-                <p>Memuat jadwal praktik...</p>
+                <p className="booking-hint" role="status">
+                  Memuat jadwal praktik...
+                </p>
               )}
 
               {!isLoadingSchedules && scheduleError && (
-                <p className="error-message">{scheduleError}</p>
+                <p className="form-error" role="alert">
+                  {scheduleError}
+                </p>
               )}
 
               {!isLoadingSchedules &&
                 !scheduleError &&
                 doctorSchedules.length === 0 && (
                   <p>Belum ada jadwal praktik untuk dokter ini.</p>
-              )}
+                )}
 
               {!isLoadingSchedules &&
                 !scheduleError &&
                 doctorSchedules.length > 0 && (
                   <div className="doctor-schedule-list">
                     {doctorSchedules.map((schedule) => (
-                      <div key={schedule.id} className="doctor-schedule-item">
+                      <div
+                        key={schedule.id}
+                        className="doctor-schedule-item"
+                      >
                         <span>
-                          {[
-                            'Senin',
-                            'Selasa',
-                            'Rabu',
-                            'Kamis',
-                            'Jumat',
-                            'Sabtu',
-                            'Minggu',
-                          ][schedule.day_of_week - 1]}
+                          {practiceDayNames[schedule.day_of_week - 1]}
                         </span>
 
                         <strong>
@@ -409,108 +692,168 @@ function BookingPage() {
                     ))}
                   </div>
                 )}
-          </div>
+            </div>
           )}
 
-            <div className="form-group">
-              <label htmlFor="appointment-date">Tanggal Kunjungan</label>
+          <div className="form-group">
+            <label htmlFor="appointment-date">Tanggal Kunjungan *</label>
 
-              <input
-                type="date"
-                id="appointment-date"
-                min={new Date().toLocaleDateString('en-CA')}
-                value={appointmentDate}
-                onChange={(e) => setAppointmentDate(e.target.value)}
-                required
-                disabled={
-                  !selectedDoctor ||
-                  isLoadingSchedules ||
-                  scheduleError !== '' ||
-                  doctorSchedules.length === 0
-                }
-              />
+            <input
+              id="appointment-date"
+              type="date"
+              value={appointmentDate}
+              min={today}
+              onChange={(event) => {
+                setAppointmentDate(event.target.value)
+                setSelectedTime('')
+                setAvailableSlots([])
 
-              {appointmentDate && (
-                <p className="booking-date-info">
-                  Tanggal yang dipilih: <strong>{formattedAppointmentDate}</strong>
+                clearFieldError('appointmentDate')
+                clearFieldError('selectedTime')
+              }}
+              aria-invalid={Boolean(fieldErrors.appointmentDate)}
+              aria-describedby={
+                fieldErrors.appointmentDate
+                  ? 'appointment-date-error'
+                  : undefined
+              }
+              required
+              disabled={
+                !selectedDoctor ||
+                isLoadingSchedules ||
+                Boolean(scheduleError) ||
+                doctorSchedules.length === 0
+              }
+            />
+
+            {fieldErrors.appointmentDate && (
+              <p
+                id="appointment-date-error"
+                className="form-error"
+                role="alert"
+              >
+                {fieldErrors.appointmentDate}
+              </p>
+            )}
+
+            {selectedDate && (
+              <p className="booking-date-info">
+                Tanggal dipilih: {formattedAppointmentDate}
+              </p>
+            )}
+
+            {selectedDate &&
+              selectedDoctor &&
+              !isLoadingSchedules &&
+              !scheduleError &&
+              doctorSchedules.length > 0 && (
+                <p className="booking-hint">
+                  Hari praktik dokter: {availablePracticeDays}
                 </p>
               )}
 
-              {appointmentDate &&
-                !isLoadingSchedules &&
-                !scheduleError &&
-                doctorSchedules.length > 0 &&
-                !isPracticeDay && (
-                  <p className="booking-warning">
-                    Dokter tidak praktik pada hari {selectedDayName}.
-                    Hari praktik dokter: {availablePracticeDays}.
-                  </p>
-                )}
-            </div>
+            {selectedDate &&
+              selectedDoctor &&
+              !isLoadingSchedules &&
+              !scheduleError &&
+              doctorSchedules.length > 0 &&
+              !isPracticeDay && (
+                <p className="booking-warning" role="status">
+                  Dokter tidak praktik pada hari {selectedDayName}. Silakan
+                  pilih salah satu hari praktik: {availablePracticeDays}.
+                </p>
+              )}
+          </div>
 
           <div className="form-group">
-            <label htmlFor="appointment-time">Waktu Kunjungan</label>
-              <select
-                id="appointment-time"
-                value={selectedTime}
-                onChange={(e) => setSelectedTime(e.target.value)}
-                required
-                disabled={
-                  !selectedDoctor ||
-                  !appointmentDate ||
-                  isLoadingSchedules ||
-                  isLoadingSlots ||
-                  availableSlots.length === 0
-                }
-              >
-                <option value="" disabled>
-                  {!selectedDoctor || !appointmentDate
-                    ? 'Pilih dokter dan tanggal terlebih dahulu'
-                    : isLoadingSchedules
-                      ? 'Memuat jadwal praktik dokter...'
-                      : isLoadingSlots
-                        ? 'Memuat slot waktu...'
-                      : slotError
-                        ? 'Jadwal tidak dapat dimuat'
+            <label htmlFor="appointment-time">Waktu Kunjungan *</label>
+
+            <select
+              id="appointment-time"
+              value={selectedTime}
+              onChange={(event) => {
+                setSelectedTime(event.target.value)
+                clearFieldError('selectedTime')
+              }}
+              aria-invalid={Boolean(fieldErrors.selectedTime)}
+              aria-describedby={
+                fieldErrors.selectedTime
+                  ? 'appointment-time-error'
+                  : undefined
+              }
+              required
+              disabled={
+                !selectedDoctor ||
+                !appointmentDate ||
+                isLoadingSchedules ||
+                Boolean(scheduleError) ||
+                !isPracticeDay ||
+                isLoadingSlots ||
+                availableSlots.length === 0
+              }
+            >
+              <option value="">
+                {!selectedDoctor || !appointmentDate
+                  ? 'Pilih dokter dan tanggal terlebih dahulu'
+                  : isLoadingSchedules
+                    ? 'Memuat jadwal praktik dokter...'
+                    : scheduleError
+                      ? 'Jadwal praktik tidak dapat dimuat'
                       : !isPracticeDay
                         ? 'Dokter tidak praktik pada hari ini'
-                        : availableSlots.length === 0
-                          ? 'Tidak ada slot tersedia pada tanggal ini'
-                          : 'Pilih waktu kunjungan'}
+                        : isLoadingSlots
+                          ? 'Memuat slot waktu...'
+                          : slotError
+                            ? 'Slot waktu tidak dapat dimuat'
+                            : availableSlots.length === 0
+                              ? 'Tidak ada slot tersedia pada tanggal ini'
+                              : 'Pilih waktu kunjungan'}
+              </option>
+
+              {availableSlots.map((slot) => (
+                <option key={slot} value={slot}>
+                  {slot}
                 </option>
+              ))}
+            </select>
 
-                {availableSlots.map((slot) => (
-                  <option key={slot} value={slot}>
-                    {slot}
-                  </option>
-                ))}
-              </select>
+            {fieldErrors.selectedTime && (
+              <p
+                id="appointment-time-error"
+                className="form-error"
+                role="alert"
+              >
+                {fieldErrors.selectedTime}
+              </p>
+            )}
 
-              {appointmentDate &&
-                isPracticeDay &&
-                !isLoadingSlots &&
-                !slotError &&
-                availableSlots.length === 0 && (
-                  <p className="booking-warning">
-                    Belum ada slot waktu yang tersedia pada tanggal ini.
-                    Silakan pilih tanggal lain.
-                  </p>
-                )}
-
-              {slotError && (
-                <p className="doctor-message error-message">
-                  {slotError}
+            {selectedDoctor &&
+              appointmentDate &&
+              isPracticeDay &&
+              !isLoadingSlots &&
+              !slotError &&
+              !fieldErrors.selectedTime &&
+              availableSlots.length === 0 && (
+                <p className="booking-warning" role="status">
+                  Belum ada slot waktu yang tersedia pada tanggal ini.
+                  Silakan pilih tanggal lain.
                 </p>
               )}
+
+            {slotError && !fieldErrors.selectedTime && (
+              <p className="form-error" role="alert">
+                {slotError}
+              </p>
+            )}
           </div>
 
           <p className="booking-note">
-            Data yang Anda isi akan digunakan untuk keperluan
-            pendaftaran pasien dan pemesanan appointment.
+            Data yang Anda isi akan digunakan untuk keperluan pendaftaran pasien
+            dan pemesanan appointment.
           </p>
 
           {submitError && (
-            <p className="booking-warning">
+            <p className="booking-error" role="alert">
               {submitError}
             </p>
           )}

@@ -1060,3 +1060,34 @@
     font-size: 19px;
   }
 }
+
+/* Booking Form Validation and Feedback */
+
+.form-group input[aria-invalid="true"],
+.form-group select[aria-invalid="true"] {
+  border-color: #c0392b;
+}
+
+.form-group input[aria-invalid="true"]:focus,
+.form-group select[aria-invalid="true"]:focus {
+  border-color: #c0392b;
+  box-shadow: 0 0 0 2px rgba(192, 57, 43, 0.1);
+}
+
+.form-error {
+  margin: 7px 0 0;
+  color: #c0392b;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.booking-error {
+  margin: 12px 0 18px;
+  padding: 12px 14px;
+  border: 1px solid #f0d0cc;
+  border-radius: 8px;
+  background: #fff5f3;
+  color: #a93226;
+  font-size: 13px;
+  line-height: 1.6;
+}
