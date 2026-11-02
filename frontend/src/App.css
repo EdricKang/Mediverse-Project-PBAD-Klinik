@@ -1091,3 +1091,352 @@
   font-size: 13px;
   line-height: 1.6;
 }
+
+
+/* Booking Lookup Page */
+
+.booking-lookup-page {
+  min-height: calc(100vh - 78px);
+  padding: 70px 0 85px;
+  background: #f4f8f6;
+  box-sizing: border-box;
+}
+
+.booking-lookup-heading {
+  text-align: center;
+  margin-bottom: 35px;
+}
+
+.booking-lookup-heading span {
+  color: #167d6a;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+}
+
+.booking-lookup-heading h1 {
+  color: #193b35;
+  font-size: 36px;
+  margin: 13px 0;
+}
+
+.booking-lookup-heading p {
+  color: #788981;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.booking-lookup-card {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 35px;
+  background: #ffffff;
+  border: 1px solid #e9efec;
+  border-radius: 15px;
+  box-sizing: border-box;
+}
+
+.lookup-form {
+  display: grid;
+  grid-template-columns: 1fr 150px;
+  align-items: end;
+  gap: 15px;
+}
+
+.lookup-form .form-group {
+  margin-bottom: 0;
+}
+
+.lookup-form .form-group input {
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.lookup-form .form-group input[aria-invalid="true"] {
+  border-color: #c0392b;
+}
+
+.lookup-search-button {
+  min-height: 43px;
+  padding: 12px 15px;
+  border: none;
+  border-radius: 8px;
+  background: #167d6a;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.lookup-search-button:hover {
+  background: #105e50;
+}
+
+.lookup-search-button:disabled {
+  background: #a6bdb5;
+  cursor: not-allowed;
+}
+
+.lookup-hint {
+  margin: 15px 0 0;
+  color: #788981;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.lookup-result {
+  margin-top: 30px;
+  padding-top: 25px;
+  border-top: 1px solid #e9efec;
+}
+
+.lookup-result-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 22px;
+}
+
+.lookup-result-heading > div > span {
+  color: #167d6a;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+}
+
+.lookup-result-heading h2 {
+  margin: 7px 0 0;
+  color: #193b35;
+  font-size: 21px;
+}
+
+.lookup-status {
+  display: inline-block;
+  padding: 7px 11px;
+  border-radius: 20px;
+  background: #fff4e5;
+  color: #a36b29;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.lookup-status--confirmed {
+  background: #e5f4ed;
+  color: #167d6a;
+}
+
+.lookup-status--completed {
+  background: #e8eef9;
+  color: #42659a;
+}
+
+.lookup-status--cancelled {
+  background: #fcebea;
+  color: #bd5555;
+}
+
+.lookup-code-box {
+  padding: 20px;
+  margin-bottom: 25px;
+  border: 1px dashed #a8cfc0;
+  border-radius: 10px;
+  background: #eff8f4;
+  text-align: center;
+}
+
+.lookup-code-box span {
+  display: block;
+  margin-bottom: 9px;
+  color: #788981;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.lookup-code-box strong {
+  color: #167d6a;
+  font-size: 21px;
+  letter-spacing: 1px;
+  overflow-wrap: anywhere;
+}
+
+.lookup-details {
+  margin-bottom: 25px;
+}
+
+.lookup-detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 13px 0;
+  border-bottom: 1px solid #edf1ef;
+  font-size: 13px;
+}
+
+.lookup-detail-item span {
+  color: #788981;
+}
+
+.lookup-detail-item strong {
+  color: #26483e;
+  text-align: right;
+}
+
+.lookup-status-text--pending {
+  color: #a36b29 !important;
+}
+
+.lookup-status-text--confirmed {
+  color: #167d6a !important;
+}
+
+.lookup-status-text--completed {
+  color: #42659a !important;
+}
+
+.lookup-status-text--cancelled {
+  color: #bd5555 !important;
+}
+
+.lookup-cancel-button {
+  width: 100%;
+  padding: 13px;
+  border: 1px solid #e6b8b4;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #bd5555;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.lookup-cancel-button:hover {
+  background: #fff5f4;
+}
+
+.lookup-cancel-confirmation {
+  padding: 18px;
+  border: 1px solid #f0d0cc;
+  border-radius: 9px;
+  background: #fff8f7;
+}
+
+.lookup-cancel-confirmation > strong {
+  color: #a93226;
+  font-size: 14px;
+}
+
+.lookup-cancel-confirmation p {
+  margin: 9px 0 16px;
+  color: #788981;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.lookup-confirmation-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.lookup-confirm-button,
+.lookup-back-button {
+  flex: 1;
+  padding: 11px;
+  border: none;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lookup-confirm-button {
+  background: #bd5555;
+  color: #ffffff;
+}
+
+.lookup-confirm-button:hover {
+  background: #a94141;
+}
+
+.lookup-back-button {
+  background: #e9efec;
+  color: #52645d;
+}
+
+.lookup-confirm-button:disabled,
+.lookup-back-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.lookup-feedback {
+  margin: 15px 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.lookup-feedback--success {
+  border: 1px solid #c6e6d5;
+  background: #eff8f4;
+  color: #167d6a;
+}
+
+.lookup-feedback--error {
+  border: 1px solid #f0d0cc;
+  background: #fff5f3;
+  color: #a93226;
+}
+
+.lookup-status-note {
+  margin: 15px 0 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #f3f7f5;
+  color: #788981;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+@media (max-width: 600px) {
+  .booking-lookup-page {
+    padding: 50px 0 60px;
+  }
+
+  .booking-lookup-heading h1 {
+    font-size: 29px;
+  }
+
+  .booking-lookup-card {
+    padding: 25px 20px;
+  }
+
+  .lookup-form {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .lookup-search-button {
+    width: 100%;
+  }
+
+  .lookup-result-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .lookup-detail-item {
+    gap: 12px;
+    font-size: 12px;
+  }
+
+  .lookup-code-box strong {
+    font-size: 19px;
+  }
+}
