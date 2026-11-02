@@ -192,16 +192,20 @@ const updateAppointmentStatus = async (id, status) => {
 const findAppointmentByBookingCode = async (bookingCode) => {
   const query = `
     SELECT
+      a.id,
       a.booking_code,
       a.appointment_date,
       a.appointment_time,
       a.status,
+      p.full_name AS patient_name,
+      p.phone AS patient_phone,
       d.title_prefix,
       d.full_name AS doctor_name,
       d.title_suffix,
       d.specialization AS doctor_specialization,
       d.room_number
     FROM appointments a
+    JOIN patients p ON a.patient_id = p.id
     JOIN doctors d ON a.doctor_id = d.id
     WHERE a.booking_code = ?
   `;
