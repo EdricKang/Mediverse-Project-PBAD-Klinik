@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS appointments (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     patient_id       INTEGER NOT NULL,
     doctor_id        INTEGER NOT NULL,
-    booking_code     TEXT,
+    booking_code     TEXT NOT NULL,
     appointment_date TEXT NOT NULL,
     appointment_time TEXT NOT NULL,
     complaint        TEXT,

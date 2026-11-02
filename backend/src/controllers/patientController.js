@@ -28,6 +28,37 @@ const parseId = (rawId) => {
     : null;
 };
 
+const validDate = (value) => {
+  if (
+    typeof value !== 'string' ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(value)
+  ) {
+    return false;
+  }
+
+  const date = new Date(`${value}T00:00:00.000Z`);
+
+  return (
+    !Number.isNaN(date.getTime()) &&
+    date.toISOString().slice(0, 10) === value
+  );
+};
+
+const getLocalDate = () => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+
+  const year = parts.find((part) => part.type === 'year').value;
+  const month = parts.find((part) => part.type === 'month').value;
+  const day = parts.find((part) => part.type === 'day').value;
+
+  return `${year}-${month}-${day}`;
+};
+
 const getAllPatients = async (_req, res) => {
   try {
     const patients = await patientModel.findAllPatients();
@@ -93,6 +124,11 @@ const createPatient = async (req, res) => {
       ? body.phone.trim()
       : '';
 
+  const dateOfBirth =
+    typeof body.date_of_birth === 'string'
+      ? body.date_of_birth.trim()
+      : '';
+
   if (!fullName) {
     return fail(
       res,
@@ -111,9 +147,35 @@ const createPatient = async (req, res) => {
     );
   }
 
+  if (!dateOfBirth) {
+    return fail(
+      res,
+      400,
+      'Validasi gagal',
+      'Tanggal lahir wajib diisi'
+    );
+  }
+
+  if (!validDate(dateOfBirth)) {
+    return fail(
+      res,
+      400,
+      'Validasi gagal',
+      'Tanggal lahir harus berformat YYYY-MM-DD'
+    );
+  }
+
+  if (dateOfBirth > getLocalDate()) {
+    return fail(
+      res,
+      400,
+      'Validasi gagal',
+      'Tanggal lahir tidak boleh berada di masa depan'
+    );
+  }
+
   const optionalFields = [
     'email',
-    'date_of_birth',
     'gender',
     'address',
   ];
@@ -138,7 +200,7 @@ const createPatient = async (req, res) => {
       full_name: fullName,
       phone,
       email: body.email?.trim() || null,
-      date_of_birth: body.date_of_birth?.trim() || null,
+      date_of_birth: dateOfBirth,
       gender: body.gender?.trim() || null,
       address: body.address?.trim() || null,
     });
@@ -215,6 +277,40 @@ const updatePatient = async (req, res) => {
         400,
         'Validasi gagal',
         `${field} harus berupa teks`
+      );
+    }
+  }
+
+  if (body.date_of_birth !== undefined) {
+    const dateOfBirth =
+      typeof body.date_of_birth === 'string'
+        ? body.date_of_birth.trim()
+        : '';
+
+    if (!dateOfBirth) {
+      return fail(
+        res,
+        400,
+        'Validasi gagal',
+        'Tanggal lahir wajib diisi'
+      );
+    }
+
+    if (!validDate(dateOfBirth)) {
+      return fail(
+        res,
+        400,
+        'Validasi gagal',
+        'Tanggal lahir harus berformat YYYY-MM-DD'
+      );
+    }
+
+    if (dateOfBirth > getLocalDate()) {
+      return fail(
+        res,
+        400,
+        'Validasi gagal',
+        'Tanggal lahir tidak boleh berada di masa depan'
       );
     }
   }

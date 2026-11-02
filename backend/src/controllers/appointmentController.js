@@ -78,14 +78,24 @@ const minutesToTime = (minutes) => {
   );
 };
 
-const getLocalDate = () => {
-  const now = new Date();
+const getJakartaDateTime = () => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date());
 
-  return [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, '0'),
-    String(now.getDate()).padStart(2, '0'),
-  ].join('-');
+  const getPart = (type) =>
+    parts.find((part) => part.type === type).value;
+
+  return {
+    date: `${getPart('year')}-${getPart('month')}-${getPart('day')}`,
+    time: `${getPart('hour')}:${getPart('minute')}`,
+  };
 };
 
 const getAvailableSlots = async (req, res) => {
@@ -108,7 +118,7 @@ const getAvailableSlots = async (req, res) => {
     );
   }
 
-  const today = getLocalDate();
+const { date: today, time: currentTime } = getJakartaDateTime();
 
   if (appointmentDate < today) {
     return fail(
@@ -173,12 +183,6 @@ const getAvailableSlots = async (req, res) => {
     );
 
     const availableSlots = new Set();
-
-    const now = new Date();
-    const currentTime = [
-      String(now.getHours()).padStart(2, '0'),
-      String(now.getMinutes()).padStart(2, '0'),
-    ].join(':');
 
     for (const schedule of schedules) {
       const startMinutes =
@@ -371,7 +375,7 @@ const createAppointment = async (req, res) => {
     );
   }
 
-  const today = getLocalDate();
+const { date: today, time: currentTime } = getJakartaDateTime();
 
   if (body.appointment_date < today) {
     return fail(
@@ -415,13 +419,6 @@ const createAppointment = async (req, res) => {
         'Dokter sedang tidak aktif dan tidak dapat menerima appointment'
       );
     }
-
-    const now = new Date();
-
-    const currentTime = [
-      String(now.getHours()).padStart(2, '0'),
-      String(now.getMinutes()).padStart(2, '0'),
-    ].join(':');
 
     if (
       body.appointment_date === today &&
@@ -564,17 +561,11 @@ const updateAppointment = async (req, res) => {
     return fail(res, 400, 'complaint harus berupa teks');
   }
 
-  const today = getLocalDate();
+const { date: today, time: currentTime } = getJakartaDateTime();
 
   if (body.appointment_date < today) {
     return fail(res, 400, 'Tanggal appointment tidak boleh lewat');
   }
-
-  const now = new Date();
-  const currentTime = [
-    String(now.getHours()).padStart(2, '0'),
-    String(now.getMinutes()).padStart(2, '0'),
-  ].join(':');
 
   if (
     body.appointment_date === today &&
