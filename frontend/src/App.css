@@ -895,3 +895,168 @@
   font-size: 12px;
   line-height: 1.6;
 }
+
+/* Booking Success Page */
+
+.booking-success-page {
+  padding: 65px 0 80px;
+  background: #f7faf9;
+  min-height: calc(100vh - 78px);
+  box-sizing: border-box;
+}
+
+.booking-success-card {
+  max-width: 650px;
+  margin: 0 auto;
+  padding: 35px;
+  background: #ffffff;
+  border: 1px solid #e9efec;
+  border-radius: 15px;
+  text-align: center;
+}
+
+.success-icon {
+  width: 65px;
+  height: 65px;
+  margin: 0 auto 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #e5f4ed;
+  color: #167d6a;
+  font-size: 34px;
+  font-weight: 700;
+}
+
+.booking-success-card h1 {
+  margin: 0 0 12px;
+  color: #193b35;
+  font-size: 27px;
+}
+
+.success-description {
+  color: #788981;
+  font-size: 14px;
+  line-height: 1.7;
+  margin-bottom: 25px;
+}
+
+.booking-code-box {
+  padding: 20px;
+  margin-bottom: 30px;
+  border: 1px dashed #a8cfc0;
+  border-radius: 10px;
+  background: #eff8f4;
+}
+
+.booking-code-box span {
+  display: block;
+  margin-bottom: 10px;
+  color: #788981;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.booking-code-box strong {
+  color: #167d6a;
+  font-size: 22px;
+  letter-spacing: 1px;
+  overflow-wrap: anywhere;
+}
+
+.success-details {
+  text-align: left;
+  margin-bottom: 25px;
+}
+
+.success-details h2 {
+  color: #26483e;
+  font-size: 19px;
+  margin-bottom: 15px;
+}
+
+.success-detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 13px 0;
+  border-bottom: 1px solid #edf1ef;
+  font-size: 13px;
+}
+
+.success-detail-item span {
+  color: #788981;
+}
+
+.success-detail-item strong {
+  color: #26483e;
+  text-align: right;
+}
+
+.success-status {
+  color: #a36b29 !important;
+}
+
+.success-status--confirmed {
+  color: #167d6a !important;
+}
+
+.success-status--completed {
+  color: #167d6a !important;
+}
+
+.success-status--cancelled {
+  color: #bd5555 !important;
+}
+
+.success-note {
+  padding: 14px;
+  margin: 0 0 25px;
+  background: #f3f7f5;
+  border-radius: 8px;
+  color: #788981;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.success-primary-button {
+  display: inline-block;
+  padding: 13px 22px;
+  background: #167d6a;
+  color: #ffffff;
+  border-radius: 9px;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.success-primary-button:hover {
+  background: #105e50;
+}
+
+@media (max-width: 600px) {
+  .booking-success-page {
+    padding: 40px 0 55px;
+  }
+
+  .booking-success-card {
+    padding: 25px 20px;
+  }
+
+  .booking-success-card h1 {
+    font-size: 23px;
+  }
+
+  .success-detail-item {
+    gap: 12px;
+    font-size: 12px;
+  }
+
+  .booking-code-box strong {
+    font-size: 19px;
+  }
+}
