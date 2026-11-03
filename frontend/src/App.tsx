@@ -4,7 +4,6 @@ import HomePage from './pages/HomePage'
 import BookingPage from './pages/BookingPage'
 import BookingSuccessPage from './pages/BookingSuccessPage'
 import BookingLookupPage from './pages/BookingLookupPage'
-import NotFoundPage from './pages/NotFoundPage'
 import './App.css'
 
 function App() {
@@ -18,7 +17,6 @@ function App() {
           <Route path="/booking" element={<BookingPage />} />
           <Route path="/booking/success" element={<BookingSuccessPage />} />
           <Route path="/booking/lookup" element={<BookingLookupPage />} />
-          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
     </>
