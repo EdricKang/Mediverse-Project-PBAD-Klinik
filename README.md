@@ -9,11 +9,11 @@ Mata Kuliah: **Pengembangan Aplikasi Berbasis Platform**
 
 | Nama | NIM |
 |---|---|
-| EDRIC KANG | 231120060 |
-| ANGEL JAUHARI | 231120080 |
-| WENNIE | 231120216 |
-| ENDELYN WIJAYA | 231120993 |
-| JENNIFER | 231120457 |
+| Edric Kang | 231120060 |
+| Angel Jauhari | 231120080 |
+| Wennie | 231120216 |
+| Endelyn Wijaya | 231120993 |
+| Jennifer | 231120457 |
 
 ## Gambaran Proyek
 
