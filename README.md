@@ -17,9 +17,9 @@ Mata Kuliah: **Pengembangan Aplikasi Berbasis Platform**
 
 ## Gambaran Proyek
 
-**Mediverse** adalah aplikasi berbasis web untuk membantu proses pembuatan dan pengelolaan janji temu klinik. Pengguna dapat melihat informasi dokter, memilih jadwal praktik yang tersedia, melakukan booking, serta mencari dan melihat detail appointment menggunakan kode booking.
+**Mediverse** adalah aplikasi berbasis web untuk membantu proses pembuatan dan pengelolaan janji temu klinik. Pengguna dapat melihat informasi dokter, memilih jadwal praktik yang tersedia, membuat appointment, serta mencari dan melihat detail appointment menggunakan kode booking.
 
-Aplikasi ini dikembangkan sebagai proyek UTS dengan pemisahan frontend dan backend serta menggunakan SQLite sebagai basis data.
+Aplikasi dikembangkan dengan pemisahan frontend dan backend serta menggunakan SQLite sebagai basis data.
 
 ## Fitur Utama
 
@@ -36,7 +36,7 @@ Aplikasi ini dikembangkan sebagai proyek UTS dengan pemisahan frontend dan backe
 - **Frontend:** React, TypeScript, Vite, React Router, dan Axios.
 - **Backend:** Node.js dan Express.
 - **Database:** SQLite.
-- **Tools:** npm dan Postman (untuk pengujian API).
+- **Tools:** npm dan Postman untuk pengujian API.
 
 ## Persyaratan Minimum
 
@@ -44,27 +44,35 @@ Aplikasi ini dikembangkan sebagai proyek UTS dengan pemisahan frontend dan backe
 - npm (disertakan bersama instalasi Node.js).
 - Browser modern seperti Google Chrome atau Microsoft Edge.
 
-Persyaratan Node.js mengikuti kebutuhan Vite 8. Lihat [dokumentasi resmi Vite](https://vite.dev/guide/).
-
 ## Konfigurasi Environment
 
-### Backend
+File `.env.example` sudah disediakan pada folder backend dan frontend. Salin file tersebut menjadi `.env` sebelum menjalankan aplikasi.
 
-Di folder `backend`, salin `.env.example` menjadi `.env`:
+**Backend** — di dalam folder `backend`:
+
+```cmd
+copy .env.example .env
+```
+
+Isi `.env.example` backend:
 
 ```env
 PORT=3000
 ```
 
-### Frontend
+**Frontend** — di dalam folder `frontend`:
 
-Buat file `.env` di dalam folder `frontend`:
+```cmd
+copy .env.example .env
+```
+
+Isi `.env.example` frontend:
 
 ```env
 VITE_API_URL=http://localhost:3000/api
 ```
 
-File `.env` berisi konfigurasi lokal dan tidak perlu diunggah ke repository. Jangan menyimpan password, token, atau informasi rahasia di dalam repository.
+File `.env` digunakan untuk konfigurasi lokal dan tidak perlu diunggah ke repository. Pertahankan `.env.example` agar anggota kelompok dapat menyiapkan konfigurasi masing-masing. Jangan menyimpan password, token, atau informasi rahasia di dalam repository.
 
 ## Cara Menjalankan Aplikasi
 
@@ -72,22 +80,25 @@ Jalankan backend dan frontend pada **dua terminal CMD terpisah**.
 
 **1. Backend**
 
-```bash
+```cmd
 cd backend
 npm ci
 copy .env.example .env
 npm run dev
 ```
 
+Backend berjalan pada `http://localhost:3000`.
+
 **2. Frontend**
 
-```bash
+```cmd
 cd frontend
 npm ci
+copy .env.example .env
 npm run dev
 ```
 
-Pastikan file `frontend/.env` sudah dibuat sebelum menjalankan frontend. Setelah Vite berjalan, buka alamat lokal yang ditampilkan pada terminal (umumnya `http://localhost:5173`). Backend berjalan pada `http://localhost:3000`.
+Setelah Vite berjalan, buka alamat lokal yang ditampilkan pada terminal (umumnya `http://localhost:5173`).
 
 Database SQLite diinisialisasi oleh backend saat server pertama kali dijalankan.
 
@@ -96,6 +107,7 @@ Database SQLite diinisialisasi oleh backend saat server pertama kali dijalankan.
 ```text
 rumahsakit/
 ├── backend/
+│   ├── .env.example
 │   ├── src/
 │   │   ├── config/
 │   │   ├── controllers/
@@ -105,6 +117,7 @@ rumahsakit/
 │   ├── server.js
 │   └── package.json
 ├── frontend/
+│   ├── .env.example
 │   ├── src/
 │   │   ├── components/
 │   │   ├── pages/
