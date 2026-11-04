@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { isAxiosError } from 'axios'
 import api from '../services/api'
 
@@ -8,6 +8,23 @@ interface Appointment {
   appointment_date: string
   appointment_time: string
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled'
+  patient_name: string
+  patient_phone: string
+  title_prefix: string | null
+  doctor_name: string
+  title_suffix: string | null
+  doctor_specialization: string
+  room_number: string | null
+}
+
+interface AppointmentListItem {
+  booking_code: string
+  appointment_date: string
+  appointment_time: string
+  complaint: string | null
+  status: Appointment['status']
+  created_at: string
+  updated_at: string
   patient_name: string
   patient_phone: string
   title_prefix: string | null
@@ -40,12 +57,14 @@ const formatAppointmentDate = (dateValue: string) => {
 function BookingLookupPage() {
   const [bookingCode, setBookingCode] = useState('')
   const [appointment, setAppointment] = useState<Appointment | null>(null)
-
   const [isSearching, setIsSearching] = useState(false)
   const [searchError, setSearchError] = useState('')
-
-  const [showCancelConfirmation, setShowCancelConfirmation] =
-    useState(false)
+  const [appointments, setAppointments] = useState<AppointmentListItem[]>([])
+  const [isLoadingAppointments, setIsLoadingAppointments] = useState(false)
+  const [appointmentsError, setAppointmentsError] = useState('')
+  const [appointmentListRefresh, setAppointmentListRefresh] = useState(0)
+  const [selectedAppointment, setSelectedAppointment] = useState<AppointmentListItem | null>(null)
+  const [showCancelConfirmation, setShowCancelConfirmation] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
   const [cancelError, setCancelError] = useState('')
   const [cancelSuccess, setCancelSuccess] = useState('')
@@ -53,6 +72,86 @@ function BookingLookupPage() {
   const canCancel =
     appointment?.status === 'pending' ||
     appointment?.status === 'confirmed'
+
+  useEffect(() => {
+    let isMounted = true
+
+    const fetchAppointments = async () => {
+      setIsLoadingAppointments(true)
+      setAppointmentsError('')
+
+      try {
+        const response = await api.get('/appointments')
+
+        if (!isMounted) return
+
+        const result: AppointmentListItem[] = Array.isArray(response.data.data)
+          ? response.data.data
+          : []
+
+        setAppointments(result)
+
+        setSelectedAppointment((current) => {
+          if (!current) return null
+
+          return (
+            result.find(
+              (item) => item.booking_code === current.booking_code
+            ) ?? current
+          )
+        })
+      } catch (error) {
+        if (!isMounted) return
+
+        if (isAxiosError(error)) {
+          if (!error.response) {
+            setAppointmentsError(
+              'Tidak dapat terhubung ke server. Periksa koneksi backend Anda.'
+            )
+          } else {
+            setAppointmentsError(
+              error.response?.data?.message ||
+              'Gagal mengambil daftar appointment.'
+            )
+          }
+        } else {
+          setAppointmentsError(
+            'Terjadi kesalahan. Silakan coba kembali.'
+          )
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingAppointments(false)
+        }
+      }
+    }
+
+    fetchAppointments()
+
+    return () => {
+      isMounted = false
+    }
+  }, [appointmentListRefresh])
+
+  useEffect(() => {
+    if (!selectedAppointment) return
+
+    const previousOverflow = document.body.style.overflow
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setSelectedAppointment(null)
+      }
+    }
+
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [selectedAppointment])
 
   const handleSearch = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -149,6 +248,8 @@ function BookingLookupPage() {
       setAppointment(response.data.data)
       setShowCancelConfirmation(false)
       setCancelSuccess('Appointment berhasil dibatalkan.')
+      setAppointmentListRefresh((current) => current + 1)
+
     } catch (error) {
       if (isAxiosError(error)) {
         const statusCode = error.response?.status
@@ -415,6 +516,269 @@ function BookingLookupPage() {
             </div>
           )}
         </div>
+        <section
+          className="appointment-list-section"
+          aria-labelledby="appointment-list-title"
+        >
+          <div className="appointment-list-heading">
+            <span>APPOINTMENT TERDAFTAR</span>
+            <h2 id="appointment-list-title">
+              Daftar Appointment
+            </h2>
+            <p>
+              Berikut merupakan daftar janji temu yang
+              telah terdaftar di Mediverse.
+            </p>
+          </div>
+
+          {isLoadingAppointments ? (
+            <p className="appointment-list-message">
+              Memuat daftar appointment...
+            </p>
+          ) : appointmentsError ? (
+            <p
+              className="appointment-list-message appointment-list-message--error"
+              role="alert"
+            >
+              {appointmentsError}
+            </p>
+          ) : appointments.length === 0 ? (
+            <p className="appointment-list-message">
+              Belum ada appointment yang terdaftar.
+            </p>
+          ) : (
+            <div className="appointment-list-grid">
+              {appointments.map((item) => {
+                const displayDoctorName = [
+                  item.title_prefix,
+                  item.doctor_name,
+                  item.title_suffix,
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+
+                return (
+                  <article
+                    className="appointment-list-card"
+                    key={item.booking_code}
+                    role="button"
+                    tabIndex={0}
+                    aria-haspopup="dialog"
+                    aria-label={`Lihat detail appointment ${item.booking_code}`}
+                    onClick={() => setSelectedAppointment(item)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        setSelectedAppointment(item)
+                      }
+                    }}
+                  >
+                    {/* Header Card */}
+                    <div className="appointment-list-card-header">
+                      <div className="appointment-list-card-code">
+                        <span>KODE BOOKING</span>
+                        <h3>{item.booking_code}</h3>
+                      </div>
+
+                      <span
+                        className={`lookup-status lookup-status--${item.status}`}
+                      >
+                        {statusLabels[item.status]}
+                      </span>
+                    </div>
+
+                    {/* Ringkasan Appointment */}
+                    <div className="appointment-summary-grid">
+                      <div>
+                        <span>Nama Pasien</span>
+                        <strong>{item.patient_name}</strong>
+                      </div>
+
+                      <div>
+                        <span>Dokter</span>
+                        <strong>{displayDoctorName}</strong>
+                        <small>{item.doctor_specialization}</small>
+                      </div>
+
+                      <div>
+                        <span>Tanggal Appointment</span>
+                        <strong>
+                          {formatAppointmentDate(item.appointment_date)}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Waktu Appointment</span>
+                        <strong>
+                          {item.appointment_time.slice(0, 5)} WIB
+                        </strong>
+                      </div>
+                    </div>
+
+                    {/* Footer Card */}
+                    <div className="appointment-list-card-footer">
+                      <span>Klik kartu untuk melihat informasi lengkap</span>
+                      <strong>
+                        Lihat Detail <span aria-hidden="true">→</span>
+                      </strong>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          )}
+        </section>
+
+        {selectedAppointment && (
+          <div
+          className="appointment-modal-overlay"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setSelectedAppointment(null)
+            }
+          }}
+        >
+          <section
+            className="appointment-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="appointment-modal-title"
+          >
+            <header className="appointment-modal-header">
+              <div>
+                <span>INFORMASI LENGKAP</span>
+                <h2 id="appointment-modal-title">
+                  Detail Appointment
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="appointment-modal-close"
+                aria-label="Tutup detail appointment"
+                onClick={() => setSelectedAppointment(null)}
+              >
+                ×
+              </button>
+            </header>
+
+            <div className="appointment-modal-body">
+              <div className="appointment-modal-booking">
+                <div>
+                  <span>KODE BOOKING</span>
+                  <strong>{selectedAppointment.booking_code}</strong>
+                </div>
+
+                <span
+                  className={`lookup-status lookup-status--${selectedAppointment.status}`}
+                >
+                  {statusLabels[selectedAppointment.status]}
+                </span>
+              </div>
+
+              <section className="appointment-modal-section">
+                <h3>Informasi Pasien</h3>
+
+                <div className="appointment-modal-grid">
+                  <div>
+                    <span>Nama Pasien</span>
+                    <strong>{selectedAppointment.patient_name}</strong>
+                  </div>
+
+                  <div>
+                    <span>Nomor Telepon</span>
+                    <strong>{selectedAppointment.patient_phone}</strong>
+                  </div>
+                </div>
+              </section>
+                <section className="appointment-modal-section">
+                  <h3>Informasi Dokter</h3>
+
+                  <div className="appointment-modal-grid">
+                    <div>
+                      <span>Nama Dokter</span>
+                      <strong>
+                        {[
+                          selectedAppointment.title_prefix,
+                          selectedAppointment.doctor_name,
+                          selectedAppointment.title_suffix,
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>Spesialisasi</span>
+                      <strong>
+                        {selectedAppointment.doctor_specialization}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>Nomor Ruangan</span>
+                      <strong>
+                        {selectedAppointment.room_number || '-'}
+                      </strong>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="appointment-modal-section">
+                  <h3>Jadwal Appointment</h3>
+
+                  <div className="appointment-modal-grid">
+                    <div>
+                      <span>Tanggal Appointment</span>
+                      <strong>
+                        {formatAppointmentDate(
+                          selectedAppointment.appointment_date
+                        )}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>Waktu Appointment</span>
+                      <strong>
+                        {selectedAppointment.appointment_time.slice(0, 5)} WIB
+                      </strong>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="appointment-modal-section">
+                  <h3>Keluhan Pasien</h3>
+                  <p className="appointment-modal-complaint">
+                    {selectedAppointment.complaint || '-'}
+                  </p>
+                </section>
+
+                <section className="appointment-modal-section">
+                  <h3>Informasi Pendaftaran</h3>
+                  <div className="appointment-modal-grid">
+                    <div>
+                      <span>Dibuat Pada</span>
+                      <strong>{selectedAppointment.created_at}</strong>
+                    </div>
+                    <div>
+                      <span>Diperbarui Pada</span>
+                      <strong>{selectedAppointment.updated_at}</strong>
+                    </div>
+                  </div>
+                </section>
+
+              </div>
+              <footer className="appointment-modal-footer">
+                <button
+                  type="button"
+                  onClick={() => setSelectedAppointment(null)}
+                >
+                  Tutup
+                </button>
+              </footer>
+            </section>
+          </div>
+        )}
       </div>
     </section>
   )
