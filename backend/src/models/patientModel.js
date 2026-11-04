@@ -4,14 +4,12 @@ const {
   dbAll,
 } = require('../middlewares_helpers/sqlite3_helpers');
 
-// Mengambil semua data pasien
 const findAllPatients = async () => {
   return dbAll(
     'SELECT * FROM patients ORDER BY id DESC'
   );
 };
 
-// Mengambil pasien berdasarkan ID
 const findPatientById = async (id) => {
   return dbGet(
     'SELECT * FROM patients WHERE id = ?',
@@ -19,7 +17,6 @@ const findPatientById = async (id) => {
   );
 };
 
-// Menambahkan pasien baru
 const createPatient = async (body) => {
   const query = `
     INSERT INTO patients (
@@ -47,7 +44,6 @@ const createPatient = async (body) => {
   return findPatientById(result.lastID);
 };
 
-// Memperbarui data pasien
 const updatePatient = async (id, body) => {
   const existing = await findPatientById(id);
 
@@ -100,7 +96,6 @@ const updatePatient = async (id, body) => {
   return findPatientById(id);
 };
 
-// Menghapus pasien
 const deletePatient = async (id) => {
   const result = await dbRun(
     'DELETE FROM patients WHERE id = ?',

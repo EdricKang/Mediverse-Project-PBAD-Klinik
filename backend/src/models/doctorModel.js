@@ -4,8 +4,6 @@ const {
   dbAll,
 } = require('../middlewares_helpers/sqlite3_helpers');
 
-// Mengambil semua dokter.
-// room_number sekarang langsung berasal dari tabel doctors.
 const findAllDoctors = async () => {
   const query = `
     SELECT *
@@ -16,7 +14,6 @@ const findAllDoctors = async () => {
   return dbAll(query);
 };
 
-// Mengambil satu dokter berdasarkan ID.
 const findDoctorById = async (id) => {
   const query = `
     SELECT *
@@ -27,7 +24,6 @@ const findDoctorById = async (id) => {
   return dbGet(query, [id]);
 };
 
-// Menambahkan dokter beserta nomor ruangannya.
 const createDoctor = async (body) => {
   const query = `
     INSERT INTO doctors (
@@ -58,7 +54,6 @@ const createDoctor = async (body) => {
   return findDoctorById(result.lastID);
 };
 
-// Memperbarui data dokter.
 const updateDoctor = async (id, body) => {
   const existing = await findDoctorById(id);
 
@@ -116,7 +111,6 @@ const updateDoctor = async (id, body) => {
   return findDoctorById(id);
 };
 
-// Mengubah status aktif dokter.
 const updateDoctorStatus = async (id, isActive) => {
   const query = `
     UPDATE doctors
