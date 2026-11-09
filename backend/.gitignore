@@ -8,11 +8,6 @@ build/
 **/.env.*
 !**/.env.example
 
-# Local database
-database.sqlite
-database.sqlite-shm
-database.sqlite-wal
-
 # IDE and OS
 .vscode/
 .idea/
